@@ -198,6 +198,9 @@ int main(int argc,char *argv[]){
                 last_request = ros::Time::now();
                 while(ros::ok() && ros::Time::now() - last_request < ros::Duration(3.0)) { // 等待视觉识别靶标，时间为3秒
                     ros::spinOnce();
+                    if (target_pose.pose.position.z != -1)
+                        break;
+                    vision_state_pub.publish(vision_state_msg);
                     local_pos_pub.publish(pose); // 保持悬停
                     rate.sleep();
                 }
@@ -414,7 +417,7 @@ int main(int argc,char *argv[]){
                 pose.header.stamp = ros::Time::now();
                 pose.pose.position.x = current_pose.pose.position.x;
                 pose.pose.position.y = current_pose.pose.position.y;
-                pose.pose.position.z = 3; // 悬停高度
+                pose.pose.position.z = 3.5; // 悬停高度
 
                 ROS_INFO("Reached overlooking position. Scanning for target...");
                 last_request = ros::Time::now();
@@ -428,6 +431,9 @@ int main(int argc,char *argv[]){
 
                 while(ros::ok() && ros::Time::now() - last_request < ros::Duration(3.0)) { // 等待视觉识别靶标，时间为3秒
                     ros::spinOnce();
+                    if (target_pose.pose.position.z != -1)
+                        break;
+                    vision_state_pub.publish(vision_state_msg);
                     local_pos_pub.publish(pose); // 保持悬停
                     rate.sleep();
                 }
@@ -435,7 +441,7 @@ int main(int argc,char *argv[]){
                 while(follow_timer<=20){
                     vision_state_pub.publish(vision_state_msg);
 
-                    if(target_pose.pose.position.z != -1) { // 找到了靶标，进入靶标导航状态
+                    if(target_pose.pose.position.z != -1) { // 找到了靶标，进入靶标跟随状态
                         ROS_INFO("Target found, keeping following to target.");
                     } else {
                         mission_state = SEARCHING; // 没有找到靶标，进入搜索状态
@@ -461,13 +467,13 @@ int main(int argc,char *argv[]){
                     if(follow_timer>=20) {
                         ROS_INFO("FOLLOW success (%d cycles), switching to BOMBING", follow_timer);
                         mission_state = BOMBING;// 确认跟随后进入投弹状态
-                        break;
+                        
                     }
                 }
+                break;
             }
         }
-
-
+    }
     return 0;
 }
 
