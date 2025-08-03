@@ -419,9 +419,6 @@ int main(int argc,char *argv[]){
                 pose.pose.position.y = current_pose.pose.position.y;
                 pose.pose.position.z = 3.5; // 悬停高度
 
-                ROS_INFO("Reached overlooking position. Scanning for target...");
-                last_request = ros::Time::now();
-
                 while(ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance) {
                     ros::spinOnce();
                     vision_state_pub.publish(vision_state_msg); // 重复发布启动扫描指令，防止视觉节点没有接收到
@@ -429,7 +426,9 @@ int main(int argc,char *argv[]){
                     rate.sleep();
                 }
 
-                while(ros::ok() && ros::Time::now() - last_request < ros::Duration(3.0)) { // 等待视觉识别靶标，时间为3秒
+                ROS_INFO("Reached overlooking position. Scanning for target...");
+                last_request = ros::Time::now();
+                while(ros::ok() && ros::Time::now() - last_request < ros::Duration(10.0)) { // 等待视觉识别靶标，时间为3秒
                     ros::spinOnce();
                     if (target_pose.pose.position.z != -1)
                         break;
@@ -449,7 +448,6 @@ int main(int argc,char *argv[]){
                         break;
                     }
 
-
                     pose.header.stamp = ros::Time::now();
                     pose.pose.position.x = target_pose.pose.position.x;
                     pose.pose.position.y = target_pose.pose.position.y;
@@ -466,8 +464,7 @@ int main(int argc,char *argv[]){
 
                     if(follow_timer>=20) {
                         ROS_INFO("FOLLOW success (%d cycles), switching to BOMBING", follow_timer);
-                        mission_state = BOMBING;// 确认跟随后进入投弹状态
-                        
+                        mission_state = BOMBING;// 确认跟随后进入投弹状态                        
                     }
                 }
                 break;
