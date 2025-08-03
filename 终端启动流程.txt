@@ -6,3 +6,4 @@ con1    （启动用来给飞控发布定位的mid360.cpp）
 con2    （启动offboard.cpp）
 read    （启动readfile.cpp）
 d435i    （启动d435i_3d_ROS.py）
+pcd    （启动publish_pcd.cpp，如果不用先建图后定位的方法的话就不用启动这个）
