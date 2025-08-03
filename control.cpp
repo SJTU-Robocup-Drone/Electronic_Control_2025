@@ -432,7 +432,7 @@ int main(int argc,char *argv[]){
                     rate.sleep();
                 }
 
-                while(follow_timer<=10){
+                while(follow_timer<=20){
                     vision_state_pub.publish(vision_state_msg);
 
                     if(target_pose.pose.position.z != -1) { // 找到了靶标，进入靶标导航状态
@@ -458,7 +458,7 @@ int main(int argc,char *argv[]){
                     local_pos_pub.publish(pose);
                     rate.sleep();
 
-                    if(follow_timer>=10) {
+                    if(follow_timer>=20) {
                         ROS_INFO("FOLLOW success (%d cycles), switching to BOMBING", follow_timer);
                         mission_state = BOMBING;// 确认跟随后进入投弹状态
                         break;
