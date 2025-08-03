@@ -198,6 +198,9 @@ int main(int argc,char *argv[]){
                 last_request = ros::Time::now();
                 while(ros::ok() && ros::Time::now() - last_request < ros::Duration(3.0)) { // 等待视觉识别靶标，时间为3秒
                     ros::spinOnce();
+                    if (target_pose.pose.position.z != -1)
+                        break;
+                    vision_state_pub.publish(vision_state_msg);
                     local_pos_pub.publish(pose); // 保持悬停
                     rate.sleep();
                 }
@@ -240,17 +243,20 @@ int main(int argc,char *argv[]){
                 nav_pose.header.frame_id = "map";
                 nav_pose.header.stamp = ros::Time::now();
                 nav_pose.pose.position = searching_points[searching_index];
-                nav_goal_pub.publish(nav_pose);
+                nav_goal_pub.publish(nav_pose); 
 
                 // 轨迹跟踪
-                local_pos_pub.publish(pose);
-
-                // 到目标点后进入悬停搜索状态
-                if(distance(current_pose, nav_pose.pose.position) < threshold_distance) {
-                    ROS_INFO("Reached searching point %d.", searching_index + 1);
-                    searching_index++;
-                    mission_state = OVERLOOKING;
-                    break;
+                while(ros::ok() && distance(current_pose, nav_pose.pose.position) > threshold_distance){
+                    ros::spinOnce();
+                    local_pos_pub.publish(pose);
+                    rate.sleep();
+                    // 到目标点后进入悬停搜索状态
+                    if(distance(current_pose, nav_pose.pose.position) < threshold_distance) {
+                        ROS_INFO("Reached searching point %d.", searching_index + 1);
+                        searching_index++;
+                        mission_state = OVERLOOKING;
+                        break;
+                    }
                 }
 
                 break;
@@ -267,19 +273,44 @@ int main(int argc,char *argv[]){
                 nav_goal_pub.publish(nav_pose);
 
                 // 轨迹跟踪
-                local_pos_pub.publish(pose);
-
-                // 到目标点后进入调整对准状态
-                if(distance(current_pose, nav_pose.pose.position) < threshold_distance) {
-                    ROS_INFO("Reached bomb target %d.", target_index + 1);
-                    mission_state = ADJUSTING;
-                    break;
+                while(ros::ok() && distance(current_pose, nav_pose.pose.position) > threshold_distance){
+                    ros::spinOnce();
+                    local_pos_pub.publish(pose);
+                    rate.sleep();
+                    // 到目标点后进入调整对准状态
+                    if(distance(current_pose, nav_pose.pose.position) < threshold_distance) {
+                        ROS_INFO("Reached bomb target %d.", target_index + 1);
+                        mission_state = ADJUSTING;
+                        break;
+                    }
                 }
+
                 break;
             }
 
             case ADJUSTING:
             {
+                vision_state_msg.data = true; // 开启视觉扫描
+                ROS_INFO("2nd time of visual scanning...");
+                pose.header.frame_id = "map";
+                pose.pose.position.x = current_pose.pose.position.x;
+                pose.pose.position.y = current_pose.pose.position.y;
+                pose.pose.position.z = 1.0; 
+                last_request = ros::Time::now();
+                while(ros::ok() && ros::Time::now() - last_request < ros::Duration(3.0)) { // 等待视觉识别靶标，时间为3秒
+                    ros::spinOnce();
+                    // if (target_pose.pose.position.z != -1) break;
+                    // 不要提前退出循环！
+                    // 这样做，是为了让新的定位信息能把原有的覆盖掉；
+                    // 不然进入循环的时候，就会直接把原有的定位信息输出了
+                    vision_state_pub.publish(vision_state_msg);
+                    pose.header.stamp = ros::Time::now();// 更新时间戳
+                    local_pos_pub.publish(pose); // 保持悬停
+                    rate.sleep();
+                }
+               
+               vision_state_msg.data = false; // 关闭视觉扫描
+               
                 ROS_INFO("Adjusting position to target...");
                 pose.header.frame_id = "map";
                 pose.header.stamp = ros::Time::now();
@@ -288,6 +319,8 @@ int main(int argc,char *argv[]){
                 pose.pose.position.z = target_pose.pose.position.z;
                 while (distance(current_pose, pose.pose.position) > threshold_distance/2.0 && ros::ok()) { // 临时减小距离阈值
                     ros::spinOnce();
+                    pose.header.stamp = ros::Time::now();
+                    vision_state_pub.publishe(vision_state_msg);
                     local_pos_pub.publish(pose);
                     rate.sleep();
                 }
@@ -340,28 +373,21 @@ int main(int argc,char *argv[]){
 
             case OBSTACLE_AVOIDING: // TODO: 这里可以添加一个类似投弹后的adjusting状态，以保证精准降落
             {
-                // 发布航点
-                if (obstacle_zone_index < obstacle_zone_points.size()) {
+                while(obstacle_zone_index < obstacle_zone_points.size()){
                     nav_pose.header.frame_id = "map";
                     nav_pose.header.stamp = ros::Time::now();
                     nav_pose.pose.position = obstacle_zone_points[obstacle_zone_index];
                     nav_goal_pub.publish(nav_pose);
-                }
-
-                // 轨迹跟踪
-                local_pos_pub.publish(pose);
-
-                // 到点时索引自增
-                if(distance(current_pose, obstacle_zone_points[obstacle_zone_index]) < threshold_distance) {
+                    while(ros::ok() && distance(current_pose, obstacle_zone_points[obstacle_zone_index]) > threshold_distance){
+                        ros::spinOnce();
+                        local_pos_pub.publish(pose);
+                        rate.sleep();
+                    }
                     ROS_INFO("reached mid point!");
                     obstacle_zone_index++;
                 }
-
-                // 若到达全部目标点，则进入降落模式
-                if (obstacle_zone_index >= obstacle_zone_points.size()) {
-                    ROS_INFO("All obstacle_zone_points reached!");
-                    mission_state = DESCENDING;
-                }
+                ROS_INFO("All obstacle_zone_points reached!");
+                mission_state = DESCENDING;
 
                 break;
             }
@@ -414,7 +440,7 @@ int main(int argc,char *argv[]){
                 pose.header.stamp = ros::Time::now();
                 pose.pose.position.x = current_pose.pose.position.x;
                 pose.pose.position.y = current_pose.pose.position.y;
-                pose.pose.position.z = 3; // 悬停高度
+                pose.pose.position.z = 3.5; // 悬停高度
 
                 ROS_INFO("Reached overlooking position. Scanning for target...");
                 last_request = ros::Time::now();
@@ -428,6 +454,9 @@ int main(int argc,char *argv[]){
 
                 while(ros::ok() && ros::Time::now() - last_request < ros::Duration(3.0)) { // 等待视觉识别靶标，时间为3秒
                     ros::spinOnce();
+                    if (target_pose.pose.position.z != -1)
+                        break;
+                    vision_state_pub.publish(vision_state_msg);
                     local_pos_pub.publish(pose); // 保持悬停
                     rate.sleep();
                 }
@@ -435,7 +464,7 @@ int main(int argc,char *argv[]){
                 while(follow_timer<=20){
                     vision_state_pub.publish(vision_state_msg);
 
-                    if(target_pose.pose.position.z != -1) { // 找到了靶标，进入靶标导航状态
+                    if(target_pose.pose.position.z != -1) { // 找到了靶标，进入靶标跟随状态
                         ROS_INFO("Target found, keeping following to target.");
                     } else {
                         mission_state = SEARCHING; // 没有找到靶标，进入搜索状态
@@ -461,13 +490,12 @@ int main(int argc,char *argv[]){
                     if(follow_timer>=20) {
                         ROS_INFO("FOLLOW success (%d cycles), switching to BOMBING", follow_timer);
                         mission_state = BOMBING;// 确认跟随后进入投弹状态
-                        break;
+                        
                     }
                 }
+                break;
             }
         }
-
-
+    }
     return 0;
 }
-
