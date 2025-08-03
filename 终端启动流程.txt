@@ -1,0 +1,8 @@
+m1    （启动msg_MID360.launch）
+m2    （启动mapping_mid360.launch）
+px4    （启动px4.launch）
+ep    （启动ego_planner的run_in_real_world.launch）
+con1    （启动用来给飞控发布定位的mid360.cpp）
+con2    （启动offboard.cpp）
+read    （启动readfile.cpp）
+d435i    （启动d435i_3d_ROS.py）
