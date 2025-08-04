@@ -26,11 +26,11 @@ stop_event = threading.Event()  # 用于停止检测线程
 
 # 初始化滑动平均缓存
 # 注意：在新版代码中，items储存的坐标都为camera_init坐标系下的全局坐标！
-# 第一个字段表示item名称，第二个表示记录的坐标数目，第三个为坐标数组，第四个为投弹情况
+# 第一个字段表示item名称，第二个表示最新的坐标，第三个为投弹情况
 # items顺序已修改为分数顺序
 items = [
-    ["tent", 0, [],False], ["bunker", 0, [],False], ["bridge", 0, [],False],
-    ["car", 0, [],False], ["tank", 0, [],False], ["Helicopter", 0, [],False]
+    ["tent", [],False], ["bunker", [],False], ["bridge", [],False],
+    ["car", [],False], ["tank", [],False], ["Helicopter", [],False]
 ]
 
 # 以下变量用于坐标解算
@@ -43,32 +43,20 @@ coordY = 0
 current_index = -1
 
 # 存入新的坐标
-def append_queue(items, class_id, confidence, x, y, z,coordX,coordY,yaw):
+# 在新版代码中，每次只储存最新的一个坐标，而非与旧版一样储存多个坐标
+def update_items(items, class_id, confidence, x, y, z,coordX,coordY,yaw):
     item = items[class_id]
     # global_x和global_y表示全局坐标系下的坐标
     global_x = (coordX + x * math.sin(yaw) - y * math.cos(yaw))
     global_y = (coordY - x * math.cos(yaw) - y * math.sin(yaw))
     if confidence > 0.3:      #剔除置信度低于0.3的目标框
-        if item[1] < 20:
-            item[1] += 1
-            item[2].append([global_x,global_y])
-        else:
-            r = np.random.randint(0, 20)
-            item[2][r] = [global_x,global_y]
+        item[1] = [global_x,global_y]
 
 # 坐标缩放函数（YOLO输出 → 原图尺寸）
 # 对于输入给Yolov5处理的图像，Yolov5会预处理成640×640（默认，可更改）的图像，进行目标检测后输出
 # 该函数将输出的检测框坐标映射回符合原图像尺寸的坐标
 # img1_shape:输出图尺寸  img0_shape：原图尺寸
 
-def get_average_coords(items,class_id):
-    item = items[class_id]
-    if item[2]:
-        x_avg = sum(p[0] for p in item[2]) / len(item[2])
-        y_avg = sum(p[1] for p in item[2]) / len(item[2])
-    else:
-        x_avg, y_avg = 0, 0
-    return x_avg, y_avg
 
 def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
     if ratio_pad is None:
@@ -159,7 +147,7 @@ def detect_targets():
                     x, y, z = point_3d
                     class_id = cls_to_classid(int(cls)) # 注意，这里的class_id是重映射的！
 
-                    if(class_id != -1) : append_queue(items, class_id, float(conf), x, y, z,coordX, coordY, yaw)
+                    if(class_id != -1) : update_items(items, class_id, float(conf), x, y, z,coordX, coordY, yaw)
                     
                     label = f"{names[int(cls)]} {conf:.2f}"
                     coord_text = f"X:{x:.2f} Y:{y:.2f} Z:{z:.2f}"
@@ -168,7 +156,27 @@ def detect_targets():
                     #cv2.rectangle(color_image, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
                     #cv2.putText(color_image, full_label, (xmin, ymin - 10),
                                 #cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 0), 2)
-
+            # target发布功能
+            target_pose.header.stamp = rospy.Time.now()  # ROS时间戳
+            target_pose.header.frame_id = "map"         # 参考坐标系
+            if current_index != -1 :
+                # 有锁定的目标，就直接发布对应坐标
+                (target_x,target_y) = items[i][1]  
+                target_pose.pose.position = Point(x=target_x,y=target_y,z=1.0)
+            else :
+                # 没有锁定的目标，就先进行遍历
+                is_found = False
+                for i in range(4,-1,-1): # 对0~4号靶标进行降序遍历
+                    if((not items[i][2]) and items[i][1]) : # 具有有效坐标且没有被投放过
+                        (target_x,target_y) = items[i][1]   
+                        target_pose.pose.position = Point(x=target_x,y=target_y,z=1.0)
+                        current_index = i
+                        is_found = True
+                    break # 直接结束遍历
+                if not is_found :
+                    target_pose.pose.position = Point(x=0,y=0,z=-1.0) # 表示无效值
+            target_pub.publish(target_pose) # 发布
+            
             # 控制30帧率
             total_time = time.time() - start_time
             if total_time < 1 / 30:
@@ -252,7 +260,7 @@ def local_position_callback(msg):
 def manba_callback(msg):
     global current_index,items
     if current_index != -1 :
-        items[current_index][3] = False # 表示已经投弹
+        items[current_index][2] = True # 表示已经投弹
         current_index = -1 # 重置current_index
 
 if __name__ == "__main__":
@@ -274,27 +282,6 @@ if __name__ == "__main__":
     
     try:
         rospy.spin()  # 保持节点运行
-
-        # target发布功能
-        target_pose.header.stamp = rospy.Time.now()  # ROS时间戳
-        target_pose.header.frame_id = "map"         # 参考坐标系
-        if current_index != -1 :
-            # 有锁定的目标，就直接发布对应坐标
-            (target_x,target_y) = get_average_coords(items,current_index)    
-            target_pose.pose.position = Point(x=target_x,y=target_y,z=1.0)
-        else :
-            # 没有锁定的目标，就先进行遍历
-            is_found = False
-            for i in range(4,-1,-1): # 对0~4号靶标进行降序遍历
-                if((not items[i][3]) and items[i][2]) :
-                    (target_x,target_y) = get_average_coords(items,i)    
-                    target_pose.pose.position = Point(x=target_x,y=target_y,z=1.0)
-                    current_index = i
-                    is_found = True
-                break # 直接结束遍历
-            if not is_found :
-                target_pose.pose.position = Point(x=0,y=0,z=-1.0) # 表示无效值
-        target_pub.publish(target_pose) # 发布
     except rospy.ROSInterruptException:
         # 确保节点退出时停止扫描
         if scanning_active:
