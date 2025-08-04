@@ -11,6 +11,7 @@
 #include <cmath>
 #include <queue>
 #include <vector>
+#include <deque>
 
 enum MissionState {
     TAKEOFF,
@@ -77,6 +78,54 @@ void nav_info_cb(const geometry_msgs::Pose::ConstPtr& msg) {
     pose.header.stamp = ros::Time::now();
     pose.header.frame_id = "map";
     pose.pose = *msg;
+}
+
+struct TimedPose
+{
+    geometry_msgs::Point pos;
+    ros::Time stamp;
+};
+
+std::deque<TimedPose> history_;
+const size_t MAX_HISTORY = 5; // 缓冲 5 帧
+
+void visionCallback(const geometry_msgs::PoseStamped &msg)
+{
+    TimedPose tp;
+    tp.pos = msg.pose.position;
+    tp.stamp = msg.header.stamp;
+    history_.push_back(tp);
+    if (history_.size() > MAX_HISTORY)
+        history_.pop_front();
+}
+
+geometry_msgs::Vector3 computeAverageVelocity()
+{
+    if (history_.size() < 2)
+        return geometry_msgs::Vector3();
+
+    double dt_total = 0.05;
+    geometry_msgs::Vector3 dpos;
+    dpos.x = history_.back().pos.x - history_.front().pos.x;
+    dpos.y = history_.back().pos.y - history_.front().pos.y;
+    dpos.z = history_.back().pos.z - history_.front().pos.z;
+
+    geometry_msgs::Vector3 v;
+    v.x = dpos.x / dt_total;
+    v.y = dpos.y / dt_total;
+    v.z = dpos.z / dt_total;
+    return v;
+}
+
+geometry_msgs::Point predictNextPosition(double predict_dt)
+{
+    auto v = computeAverageVelocity();
+    geometry_msgs::Point p_pred;
+    auto &p_last = history_.back().pos;
+    p_pred.x = p_last.x + v.x * predict_dt;
+    p_pred.y = p_last.y + v.y * predict_dt;
+    p_pred.z = p_last.z + v.z * predict_dt;
+    return p_pred;
 }
 
 std::vector<geometry_msgs::Point> searching_points = {
@@ -447,12 +496,16 @@ int main(int argc,char *argv[]){
                         ROS_INFO("No target found, starting searching.");
                         break;
                     }
+                    
+                    if (target_pose.pose.position.z != -1)        //接受有效点后放入缓存
+                        visionCallback(target_pose);
+
+                    pose.pose.position = predictNextPosition(0.05);  //计算预测坐标
 
                     pose.header.stamp = ros::Time::now();
-                    pose.pose.position.x = target_pose.pose.position.x;
-                    pose.pose.position.y = target_pose.pose.position.y;
                     pose.pose.position.z = 2;
-//                    pose.pose.position.z = target_pose.pose.position.z;
+
+                    //                    pose.pose.position.z = target_pose.pose.position.z;
                     if(distance(current_pose, pose.pose.position) < threshold_distance / 2.0 && ros::ok())       //记录成功跟上的次数
                         follow_timer++;
                     else
