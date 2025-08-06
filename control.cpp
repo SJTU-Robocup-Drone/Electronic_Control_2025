@@ -161,20 +161,30 @@ int main(int argc,char *argv[]){
                     pose.pose.position.z = 1.1;//更容易达到起飞条件
                     local_pos_pub.publish(pose);
                     rate.sleep();
-                    if(current_pose.pose.position.z >= 0.8) {
-                        mission_state = OVERLOOKING;
-                        ROS_INFO("Takeoff complete. Starting overlooking.");
-                        break; // 跳出循环，进入导航状态
+
+                    last_request = ros::Time::now();
+                    if (current_pose.pose.position.z <=0.01 && (ros::Time::now() - last_request > ros::Duration(1.0)))
+                    {
+                        mission_state = DESCENDING;
+                        ROS_INFO("Takeoff is wrong,position.z < 0.01");
+                        break;
+                    }
+
+                    if (current_pose.pose.position.z >= 0.8)
+                    {
+                            mission_state = OVERLOOKING;
+                            ROS_INFO("Takeoff complete. Starting overlooking.");
+
+                            // 起飞后悬停一秒，给建图和ego_planner启动留时间；同时也给pose一个初始的有效值，防止飞控在ego_planner未启动时因长时间接收不到目标点而进入failsafe模式
+                            for (int i = 0; i < 100; i++)
+                            {
+                                ros::spinOnce();
+                                local_pos_pub.publish(pose);
+                                ros::Duration(0.01).sleep();
+                            }
+                            break; // 跳出循环，进入导航状态
                     }
                 }
-
-                // 起飞后悬停一秒，给建图和ego_planner启动留时间；同时也给pose一个初始的有效值，防止飞控在ego_planner未启动时因长时间接收不到目标点而进入failsafe模式
-                for(int i = 0; i < 100; i++){
-                    ros::spinOnce();
-                    local_pos_pub.publish(pose);
-                    ros::Duration(0.01).sleep();
-                }
-
                 break;
             }
 
