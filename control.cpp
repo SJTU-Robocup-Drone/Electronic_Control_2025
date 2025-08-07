@@ -394,7 +394,7 @@ int main(int argc,char *argv[]){
 
                 //到点后悬停0.5秒并投弹，然后索引自增
                 last_request = ros::Time::now();
-                target_index_msg.data = target_index++;
+                target_index_msg.data = target_index;
                 while(ros::ok() && ros::Time::now() - last_request < ros::Time::Duration(0.5)){
                     ros::spinOnce();
                     local_pos_pub.publish(up_down_pose);
@@ -415,7 +415,7 @@ int main(int argc,char *argv[]){
                     rate.sleep();
                 }
 
-                if(target_index >= 3) mission_state = OBSTACLE_AVOIDING;
+                if(++target_index >= 3) mission_state = OBSTACLE_AVOIDING;
                 else if(target_pose.pose.position.z == -1) mission_state = OVERLOOKING;
                 else mission_state = BOMB_NAVIGATING;
                 break;
