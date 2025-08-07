@@ -39,6 +39,7 @@ ros::ServiceClient arming_client;
 ros::ServiceClient set_mode_client;
 
 geometry_msgs::PoseStamped up_down_pose; // 用于高度调整的不会被回调函数更新的消息
+geometry_msgs::PoseStamped inital_pose; // 用于起飞时的初始姿态
 geometry_msgs::PoseStamped pose; // 直接发送给飞控的目标点
 geometry_msgs::PoseStamped target_pose; // 接收靶标位置，若找到则z坐标为避障飞行高度，z坐标为-1表示未找到靶标
 geometry_msgs::PoseStamped nav_pose; // 发布到egoplanner的目标点
@@ -52,6 +53,7 @@ std_msgs::Int32 target_index_msg;
 ros::Time last_request;
 ros::Time takeoff_request; // 用于单独记录起飞请求的时间
 bool is_takeoff = false; // 标记是否已经起飞
+double offset[3][2] = {{0.09, -0.113}, {0.22, 0.017}, {0.09, 0.147}}; // 用于存储每个弹相对于摄像头的偏移量，需要根据实际情况测定
 
 const double threshold_distance = 0.1; // 定义到达目标点的距离阈值
 
@@ -75,6 +77,10 @@ void state_cb(const mavros_msgs::State::ConstPtr& msg) {
 }
 void target_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
     target_pose = *msg;
+    if(target_index < 3 && target_pose.pose.position.z != -1){
+        target_pose.pose.position.x += offset[target_index][0];
+        target_pose.pose.position.y += offset[target_index][1];
+    }
     if(target_pose.pose.position.z != -1) ROS_INFO("Target found at (%.2f, %.2f, %.2f)", target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
 }
 void nav_info_cb(const geometry_msgs::Pose::ConstPtr& msg) {
@@ -182,7 +188,7 @@ int main(int argc,char *argv[]){
         ros::spinOnce();
         rate.sleep();
     }
-
+    initial_pose = current_pose; // 记录起飞前的初始位姿
     while(ros::ok()){
         ros::spinOnce(); //读取回调函数
         switch(mission_state){
@@ -373,20 +379,22 @@ int main(int argc,char *argv[]){
             case BOMBING:
             {
                 ROS_INFO("Start bombing...");
+                // 先下降到较低高度，并调整姿态后再投弹
                 up_down_pose.header.frame_id = "map";
                 up_down_pose.header.stamp = ros::Time::now();
-                up_down_pose.pose.position.x = target_pose.pose.position.x;
-                up_down_pose.pose.position.y = target_pose.pose.position.y;
-                up_down_pose.pose.position.z = 0.3; // 先下降到较低高度再投弹
+                up_down_pose.pose.position.x = current_pose.pose.position.x;
+                up_down_pose.pose.position.y = current_pose.pose.position.y;
+                up_down_pose.pose.position.z = 0.3;
+                up_down_pose.pose.orientation = current_pose.pose.orientation;
                 while(ros::ok() && distance(current_pose, up_down_pose.pose.position) > threshold_distance){
                     ros::spinOnce();
                     local_pos_pub.publish(up_down_pose);
                     rate.sleep();
                 }
 
-                //到点后悬停0.5秒并投弹
+                //到点后悬停0.5秒并投弹，然后索引自增
                 last_request = ros::Time::now();
-                target_index_msg.data = target_index;
+                target_index_msg.data = target_index++;
                 while(ros::ok() && ros::Time::now() - last_request < ros::Time::Duration(0.5)){
                     ros::spinOnce();
                     local_pos_pub.publish(up_down_pose);
@@ -407,7 +415,7 @@ int main(int argc,char *argv[]){
                     rate.sleep();
                 }
 
-                if(++target_index >= 3) mission_state = OBSTACLE_AVOIDING;
+                if(target_index >= 3) mission_state = OBSTACLE_AVOIDING;
                 else if(target_pose.pose.position.z == -1) mission_state = OVERLOOKING;
                 else mission_state = BOMB_NAVIGATING;
                 break;
