@@ -214,7 +214,10 @@ int main(int argc,char *argv[]){
                     local_pos_pub.publish(pose);
                     rate.sleep();
 
-                    if(current_state == TAKEOFF && !is_takeoff) takeoff_request = ros::Time::now(); // 记录起飞请求的时间
+                    if(current_state == AUTO.TAKEOFF && !is_takeoff){
+                        takeoff_request = ros::Time::now(); // 记录起飞请求的时间
+                        is_takeoff = true;
+                    }
                     if (current_pose.pose.position.z <= 0.05 && (ros::Time::now() - takeoff_request > ros::Duration(5.0)))
                     {
                         mission_state = LANDING;
