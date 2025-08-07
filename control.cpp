@@ -50,7 +50,8 @@ std_msgs::Bool vision_state_msg; // 发布视觉状态的消息
 int target_index = 0; // 当前投弹索引，也可视作已经投弹的数量
 std_msgs::Int32 target_index_msg;
 ros::Time last_request;
-ros::Time takeoff_request;   //起飞命令存档
+ros::Time takeoff_request; // 用于单独记录起飞请求的时间
+bool is_takeoff = false; // 标记是否已经起飞
 
 const double threshold_distance = 0.1; // 定义到达目标点的距离阈值
 
@@ -213,8 +214,8 @@ int main(int argc,char *argv[]){
                     local_pos_pub.publish(pose);
                     rate.sleep();
 
-                    takeoff_request = ros::Time::now();
-                    if (current_pose.pose.position.z <= 0.05 && (ros::Time::now() - takeoff_request > ros::Duration(2.0)))
+                    if(current_state == TAKEOFF && !is_takeoff) takeoff_request = ros::Time::now(); // 记录起飞请求的时间
+                    if (current_pose.pose.position.z <= 0.05 && (ros::Time::now() - takeoff_request > ros::Duration(5.0)))
                     {
                         mission_state = LANDING;
                         ROS_INFO("Takeoff is wrong,position.z < 0.05");
