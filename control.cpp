@@ -213,7 +213,7 @@ int main(int argc,char *argv[]){
                     local_pos_pub.publish(pose);
                     rate.sleep();
 
-                    last_request = ros::Time::now();
+                    takeoff_request = ros::Time::now();
                     if (current_pose.pose.position.z <= 0.05 && (ros::Time::now() - takeoff_request > ros::Duration(2.0)))
                     {
                         mission_state = LANDING;
