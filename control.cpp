@@ -130,12 +130,12 @@ geometry_msgs::Point predictNextPosition(double predict_dt)
 }
 
 std::vector<geometry_msgs::Point> searching_points = {
-    createPoint(1.8, 2.0, 1.0),
     createPoint(1.8, -0.5, 1.0),
-    createPoint(4.3, -0.5, 1.0),
+    createPoint(1.8, 2.0, 1.0),
     createPoint(4.3, 2.0, 1.0),
-    createPoint(6.8, 2.0, 1.0),
-    createPoint(6.8, -0.5, 1.0)
+    createPoint(4.3, -0.5, 1.0),
+    createPoint(6.8, -0.5, 1.0),
+    createPoint(6.8, 2.0, 1.0)
 };
 int searching_index = 0; // 当前搜索点的索引
 
