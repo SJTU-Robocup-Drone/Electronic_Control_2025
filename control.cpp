@@ -39,7 +39,7 @@ ros::ServiceClient arming_client;
 ros::ServiceClient set_mode_client;
 
 geometry_msgs::PoseStamped up_down_pose; // 用于高度调整的不会被回调函数更新的消息
-geometry_msgs::PoseStamped inital_pose; // 用于起飞时的初始姿态
+geometry_msgs::PoseStamped initial_pose; // 用于起飞时的初始姿态
 geometry_msgs::PoseStamped pose; // 直接发送给飞控的目标点
 geometry_msgs::PoseStamped target_pose; // 接收靶标位置，若找到则z坐标为避障飞行高度，z坐标为-1表示未找到靶标
 geometry_msgs::PoseStamped nav_pose; // 发布到egoplanner的目标点
@@ -385,7 +385,7 @@ int main(int argc,char *argv[]){
                 up_down_pose.pose.position.x = current_pose.pose.position.x;
                 up_down_pose.pose.position.y = current_pose.pose.position.y;
                 up_down_pose.pose.position.z = 0.3;
-                up_down_pose.pose.orientation = current_pose.pose.orientation;
+                up_down_pose.pose.orientation = initial_pose.pose.orientation;
                 while(ros::ok() && distance(current_pose, up_down_pose.pose.position) > threshold_distance){
                     ros::spinOnce();
                     local_pos_pub.publish(up_down_pose);
