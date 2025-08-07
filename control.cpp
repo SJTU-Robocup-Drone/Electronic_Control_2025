@@ -53,7 +53,7 @@ std_msgs::Int32 target_index_msg;
 ros::Time last_request;
 ros::Time takeoff_request; // 用于单独记录起飞请求的时间
 bool is_takeoff = false; // 标记是否已经起飞
-double offset[3][2] = {{0.09, -0.113}, {0.22, 0.017}, {0.09, 0.147}}; // 用于存储每个弹相对于摄像头的偏移量，需要根据实际情况测定
+double offset[3][2] = {{0.09, -0.147}, {0.22, -0.017}, {0.09, 0.113}}; // 用于存储每个弹相对于摄像头的偏移量，需要根据实际情况测定
 
 const double threshold_distance = 0.1; // 定义到达目标点的距离阈值
 
@@ -220,7 +220,8 @@ int main(int argc,char *argv[]){
                     local_pos_pub.publish(pose);
                     rate.sleep();
 
-                    if(current_state == AUTO.TAKEOFF && !is_takeoff){
+                    if(!is_takeoff) takeoff_request = ros::Time::now();
+                    if(current_state.mode == "AUTO.TAKEOFF" && !is_takeoff){
                         takeoff_request = ros::Time::now(); // 记录起飞请求的时间
                         is_takeoff = true;
                     }
