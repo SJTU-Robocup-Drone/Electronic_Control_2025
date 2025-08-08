@@ -384,7 +384,7 @@ int main(int argc,char *argv[]){
                 pose.pose.position.y = current_pose.pose.position.y;
                 pose.pose.position.z = 1.0; 
                 last_request = ros::Time::now();
-                while(ros::ok() && ros::Time::now() - last_request < ros::Duration(3.0)) { // 等待视觉识别靶标，时间为3秒
+                while(ros::ok() && ros::Time::now() - last_request < ros::Duration(5.0)) { // 等待视觉识别靶标
                     ros::spinOnce();
                     vision_state_pub.publish(vision_state_msg);
                     pose.header.stamp = ros::Time::now();// 更新时间戳
@@ -546,7 +546,7 @@ int main(int argc,char *argv[]){
 
                 ROS_INFO("Reached overlooking position. Scanning for target...");
                 last_request = ros::Time::now();
-                while(ros::ok() && ros::Time::now() - last_request < ros::Duration(10.0)) { // 等待视觉识别靶标，时间为3秒
+                while(ros::ok() && ros::Time::now() - last_request < ros::Duration(5.0)) { // 等待视觉识别靶标
                     ros::spinOnce();
                     if (target_pose.pose.position.z != -1)
                         break;
