@@ -81,7 +81,7 @@ void target_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
         target_pose.pose.position.x += offset[target_index][0];
         target_pose.pose.position.y += offset[target_index][1];
     }
-    if(target_pose.pose.position.z != -1) ROS_INFO("Target found at (%.2f, %.2f, %.2f)", target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
+    if(target_pose.pose.position.z != -1) ROS_INFO_THROTTLE(2.0, "Target found at (%.2f, %.2f, %.2f)", target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
 }
 void nav_info_cb(const geometry_msgs::Pose::ConstPtr& msg) {
     pose.header.stamp = ros::Time::now();
@@ -269,7 +269,7 @@ int main(int argc,char *argv[]){
 
                 ROS_INFO("Reached overlooking position. Scanning for target...");
                 last_request = ros::Time::now();
-                while(ros::ok() && ros::Time::now() - last_request < ros::Duration(3.0)) { // 等待视觉识别靶标，时间为3秒
+                while(ros::ok() && ros::Time::now() - last_request < ros::Duration(5.0)) { // 等待视觉识别靶标
                     ros::spinOnce();
                     if (target_pose.pose.position.z != -1)
                         break;
@@ -477,7 +477,7 @@ int main(int argc,char *argv[]){
 
                 // 自动降落和锁桨
                 if (set_mode_client.call(land_set_mode) && land_set_mode.response.mode_sent) {
-                    ROS_INFO("Landing initiated");
+                    ROS_INFO_THROTTLE(2.0, "Landing initiated");
                     arm_cmd.request.value = false;
                     if( current_state.armed && (ros::Time::now() - last_request > ros::Duration(5.0))){
                         if( arming_client.call(arm_cmd) && arm_cmd.response.success){
@@ -525,7 +525,7 @@ int main(int argc,char *argv[]){
                     vision_state_pub.publish(vision_state_msg);
 
                     if(target_pose.pose.position.z != -1) { // 找到了靶标，进入靶标跟随状态
-                        ROS_INFO("Target found, keeping following to target.");
+                        ROS_INFO_THROTTLE(2.0, "Target found, keeping following to target.");
                     } else {
                         mission_state = SEARCHING; // 没有找到靶标，进入搜索状态
                         ROS_INFO("No target found, starting searching.");
