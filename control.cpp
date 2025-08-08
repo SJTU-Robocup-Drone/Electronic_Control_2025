@@ -55,6 +55,12 @@ ros::Time takeoff_request; // 用于单独记录起飞请求的时间
 bool is_takeoff = false; // 标记是否已经起飞
 double offset[3][2] = {{0, -0.13}, {0.13, 0}, {0, 0.13}}; // 用于存储每个弹相对于无人机中心的偏移量，需要根据实际情况测定
 
+double nav_adjust_radius = 0.5; // ego-planner卡住时的导航调整半径
+double nav_adjust_angle = 0; // ego-planner卡住时的导航调整角度
+geometry_msgs::Point last_nav_point; // 上一个导航点，用于判断是否卡住
+geometry_msgs::PoseStamped adjust_nav_pose; // 用于调整导航的目标点
+double thresh_nav_adjust = 0.5; // 是否检测ego-planner是否卡住的距离阈值
+
 const double threshold_distance = 0.1; // 定义到达目标点的距离阈值
 
 
@@ -87,6 +93,21 @@ void nav_info_cb(const geometry_msgs::Pose::ConstPtr& msg) {
     pose.header.stamp = ros::Time::now();
     pose.header.frame_id = "map";
     pose.pose = *msg;
+}
+
+bool is_nav_stuck()
+{
+    static int nav_check_count = 0;
+    if(distance(pose, last_nav_point) > 1e-2){
+        nav_check_count = 0; // 重置计数器
+        last_nav_point = pose.pose.position; // 更新上一个导航点
+        return false;
+    }
+    else if(++nav_check_count >= 60){ // 连续60次未更新，认为卡住(约3秒)
+        nav_check_count = 0;
+        return true;
+    }
+    return false;
 }
 
 struct TimedPose
@@ -328,6 +349,20 @@ int main(int argc,char *argv[]){
                         mission_state = OVERLOOKING;
                         break; // 跳出循环，进入悬停搜索状态
                     }
+
+                    // 检查ego-planner是否卡住
+                    if(distance(current_pose, nav_pose.pose.position) > thresh_nav_adjust && is_nav_stuck()){
+                        ROS_WARN("Ego-planner is stuck, adjusting navigation. nav_adjust_radius: %.2f, nav_adjust_angle: %.2f", nav_adjust_radius, nav_adjust_angle);
+                        adjust_nav_pose.header = nav_pose.header;
+                        adjust_nav_pose.pose.position.x = nav_pose.pose.position.x + nav_adjust_radius * std::cos(nav_adjust_angle);
+                        adjust_nav_pose.pose.position.y = nav_pose.pose.position.y + nav_adjust_radius * std::sin(nav_adjust_angle);
+                        adjust_nav_pose.pose.position.z = nav_pose.pose.position.z;
+                        nav_goal_pub.publish(adjust_nav_pose); // 发布调整后的目标点
+                        nav_adjust_angle += M_PI / 2; // 每次调整角度增加90度
+                        if(nav_adjust_angle >= 2 * M_PI) nav_adjust_angle = 0; // 重置角度
+                        continue;
+                    }
+                    
                     rate.sleep();
                 }
 
@@ -354,6 +389,20 @@ int main(int argc,char *argv[]){
                         mission_state = ADJUSTING;
                         break;
                     }
+
+                    // 检查ego-planner是否卡住
+                    if(distance(current_pose, nav_pose.pose.position) > thresh_nav_adjust && is_nav_stuck()){
+                        ROS_WARN("Ego-planner is stuck, adjusting navigation. nav_adjust_radius: %.2f, nav_adjust_angle: %.2f", nav_adjust_radius, nav_adjust_angle);
+                        adjust_nav_pose.header = nav_pose.header;
+                        adjust_nav_pose.pose.position.x = nav_pose.pose.position.x + nav_adjust_radius * std::cos(nav_adjust_angle);
+                        adjust_nav_pose.pose.position.y = nav_pose.pose.position.y + nav_adjust_radius * std::sin(nav_adjust_angle);
+                        adjust_nav_pose.pose.position.z = nav_pose.pose.position.z;
+                        nav_goal_pub.publish(adjust_nav_pose); // 发布调整后的目标点
+                        nav_adjust_angle += M_PI / 2; // 每次调整角度增加90度
+                        if(nav_adjust_angle >= 2 * M_PI) nav_adjust_angle = 0; // 重置角度
+                        continue;
+                    }
+
                     rate.sleep();
                 }
 
@@ -481,6 +530,19 @@ int main(int argc,char *argv[]){
                         break; // 跳出循环，进入下一个避障点或进入降落状态
                     }
 
+                    // 检查ego-planner是否卡住
+                    if(distance(current_pose, nav_pose.pose.position) > thresh_nav_adjust && is_nav_stuck()){
+                        ROS_WARN("Ego-planner is stuck, adjusting navigation. nav_adjust_radius: %.2f, nav_adjust_angle: %.2f", nav_adjust_radius, nav_adjust_angle);
+                        adjust_nav_pose.header = nav_pose.header;
+                        adjust_nav_pose.pose.position.x = nav_pose.pose.position.x + nav_adjust_radius * std::cos(nav_adjust_angle);
+                        adjust_nav_pose.pose.position.y = nav_pose.pose.position.y + nav_adjust_radius * std::sin(nav_adjust_angle);
+                        adjust_nav_pose.pose.position.z = nav_pose.pose.position.z;
+                        nav_goal_pub.publish(adjust_nav_pose); // 发布调整后的目标点
+                        nav_adjust_angle += M_PI / 2; // 每次调整角度增加90度
+                        if(nav_adjust_angle >= 2 * M_PI) nav_adjust_angle = 0; // 重置角度
+                        continue;
+                    }
+
                     rate.sleep();
                 }
 
@@ -493,7 +555,7 @@ int main(int argc,char *argv[]){
                 up_down_pose.header.stamp = ros::Time::now();
                 up_down_pose.pose.position.x = current_pose.pose.position.x;
                 up_down_pose.pose.position.y = current_pose.pose.position.y;
-                up_down_pose.pose.position.z = 0.3;
+                up_down_pose.pose.position.z = 0.25;
                 while (distance(current_pose, up_down_pose.pose.position) > threshold_distance && ros::ok()) {
                     ros::spinOnce();
                     local_pos_pub.publish(up_down_pose);
