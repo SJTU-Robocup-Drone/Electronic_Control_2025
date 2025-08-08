@@ -430,10 +430,10 @@ int main(int argc,char *argv[]){
                 //到点后悬停0.5秒并投弹，然后索引自增
                 last_request = ros::Time::now();
                 target_index_msg.data = target_index;
+                manba_pub.publish(target_index_msg);
                 while(ros::ok() && ros::Time::now() - last_request < ros::Time::Duration(0.5)){
                     ros::spinOnce();
                     local_pos_pub.publish(up_down_pose);
-                    manba_pub.publish(target_index_msg);
                     rate.sleep();
                 }
                 target_pose.pose.position.z = -1; // 防止视觉节点没有来得及发布新目标点或发布未找到目标点的消息导致重复导航和投弹
