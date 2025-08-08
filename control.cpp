@@ -38,6 +38,8 @@ ros::Subscriber state_sub;
 ros::ServiceClient arming_client;
 ros::ServiceClient set_mode_client;
 
+geometry_msgs::PoseStamped up_down_pose; // 用于高度调整的不会被回调函数更新的消息
+geometry_msgs::PoseStamped initial_pose; // 用于起飞时的初始姿态
 geometry_msgs::PoseStamped pose; // 直接发送给飞控的目标点
 geometry_msgs::PoseStamped target_pose; // 接收靶标位置，若找到则z坐标为避障飞行高度，z坐标为-1表示未找到靶标
 geometry_msgs::PoseStamped nav_pose; // 发布到egoplanner的目标点
@@ -49,6 +51,9 @@ std_msgs::Bool vision_state_msg; // 发布视觉状态的消息
 int target_index = 0; // 当前投弹索引，也可视作已经投弹的数量
 std_msgs::Int32 target_index_msg;
 ros::Time last_request;
+ros::Time takeoff_request; // 用于单独记录起飞请求的时间
+bool is_takeoff = false; // 标记是否已经起飞
+double offset[3][2] = {{0.09, -0.147}, {0.22, -0.017}, {0.09, 0.113}}; // 用于存储每个弹相对于摄像头的偏移量，需要根据实际情况测定
 
 const double threshold_distance = 0.1; // 定义到达目标点的距离阈值
 
@@ -72,6 +77,10 @@ void state_cb(const mavros_msgs::State::ConstPtr& msg) {
 }
 void target_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
     target_pose = *msg;
+    if(target_index < 3 && target_pose.pose.position.z != -1){
+        target_pose.pose.position.x += offset[target_index][0];
+        target_pose.pose.position.y += offset[target_index][1];
+    }
     if(target_pose.pose.position.z != -1) ROS_INFO("Target found at (%.2f, %.2f, %.2f)", target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
 }
 void nav_info_cb(const geometry_msgs::Pose::ConstPtr& msg) {
@@ -129,12 +138,12 @@ geometry_msgs::Point predictNextPosition(double predict_dt)
 }
 
 std::vector<geometry_msgs::Point> searching_points = {
-    createPoint(1.8, 2.0, 1.0),
     createPoint(1.8, -0.5, 1.0),
-    createPoint(4.3, -0.5, 1.0),
+    createPoint(1.8, 2.0, 1.0),
     createPoint(4.3, 2.0, 1.0),
-    createPoint(6.8, 2.0, 1.0),
-    createPoint(6.8, -0.5, 1.0)
+    createPoint(4.3, -0.5, 1.0),
+    createPoint(6.8, -0.5, 1.0),
+    createPoint(6.8, 2.0, 1.0)
 };
 int searching_index = 0; // 当前搜索点的索引
 
@@ -179,7 +188,7 @@ int main(int argc,char *argv[]){
         ros::spinOnce();
         rate.sleep();
     }
-
+    initial_pose = current_pose; // 记录起飞前的初始位姿
     while(ros::ok()){
         ros::spinOnce(); //读取回调函数
         switch(mission_state){
@@ -210,18 +219,33 @@ int main(int argc,char *argv[]){
                     pose.pose.position.z = 1.1;//更容易达到起飞条件
                     local_pos_pub.publish(pose);
                     rate.sleep();
-                    if(current_pose.pose.position.z >= 0.8) {
+
+                    if(!is_takeoff) takeoff_request = ros::Time::now();
+                    if(current_state.mode == "AUTO.TAKEOFF" && !is_takeoff){
+                        takeoff_request = ros::Time::now(); // 记录起飞请求的时间
+                        is_takeoff = true;
+                    }
+                    if (current_pose.pose.position.z <= 0.05 && (ros::Time::now() - takeoff_request > ros::Duration(5.0)))
+                    {
+                        mission_state = LANDING;
+                        ROS_INFO("Takeoff is wrong,position.z < 0.05");
+                        break;
+                    }
+
+                    if (current_pose.pose.position.z >= 0.8)
+                    {
                         mission_state = OVERLOOKING;
                         ROS_INFO("Takeoff complete. Starting overlooking.");
+
+                        // 起飞后悬停一秒，给建图和ego_planner启动留时间；同时也给pose一个初始的有效值，防止飞控在ego_planner未启动时因长时间接收不到目标点而进入failsafe模式
+                        for (int i = 0; i < 100; i++)
+                        {
+                            ros::spinOnce();
+                            local_pos_pub.publish(pose);
+                            ros::Duration(0.01).sleep();
+                        }
                         break; // 跳出循环，进入导航状态
                     }
-                }
-
-                // 起飞后悬停一秒，给建图和ego_planner启动留时间；同时也给pose一个初始的有效值，防止飞控在ego_planner未启动时因长时间接收不到目标点而进入failsafe模式
-                for(int i = 0; i < 100; i++){
-                    ros::spinOnce();
-                    local_pos_pub.publish(pose);
-                    ros::Duration(0.01).sleep();
                 }
 
                 break;
@@ -231,15 +255,15 @@ int main(int argc,char *argv[]){
             {
                 vision_state_msg.data = true; // 开启视觉扫描
                 ROS_INFO("Start overlooking for target. Rising to overlooking position...");
-                pose.header.frame_id = "map";
-                pose.header.stamp = ros::Time::now();
-                pose.pose.position.x = current_pose.pose.position.x;
-                pose.pose.position.y = current_pose.pose.position.y;
-                pose.pose.position.z = 3.5; // 悬停高度
-                while(ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance) {
+                up_down_pose.header.frame_id = "map";
+                up_down_pose.header.stamp = ros::Time::now();
+                up_down_pose.pose.position.x = current_pose.pose.position.x;
+                up_down_pose.pose.position.y = current_pose.pose.position.y;
+                up_down_pose.pose.position.z = 3.5; // 悬停高度
+                while(ros::ok() && distance(current_pose, up_down_pose.pose.position) > threshold_distance) {
                     ros::spinOnce();
                     vision_state_pub.publish(vision_state_msg); // 重复发布启动扫描指令，防止视觉节点没有接收到
-                    local_pos_pub.publish(pose);
+                    local_pos_pub.publish(up_down_pose);
                     rate.sleep();
                 }
 
@@ -250,20 +274,20 @@ int main(int argc,char *argv[]){
                     if (target_pose.pose.position.z != -1)
                         break;
                     vision_state_pub.publish(vision_state_msg);
-                    local_pos_pub.publish(pose); // 保持悬停
+                    local_pos_pub.publish(up_down_pose); // 保持悬停
                     rate.sleep();
                 }
                 
                 ROS_INFO("Overlooking complete, descending to normal flight height.");
-                pose.header.frame_id = "map";
-                pose.header.stamp = ros::Time::now();
-                pose.pose.position.z = 1.0; // 降低高度到1米(原飞行高度)
-                local_pos_pub.publish(pose);
+                up_down_pose.header.frame_id = "map";
+                up_down_pose.header.stamp = ros::Time::now();
+                up_down_pose.pose.position.z = 1.0; // 降低高度到1米(原飞行高度)
+                local_pos_pub.publish(up_down_pose);
                 vision_state_msg.data = false; // 关闭视觉扫描
-                while(ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance) {
+                while(ros::ok() && distance(current_pose, up_down_pose.pose.position) > threshold_distance) {
                     ros::spinOnce();
                     vision_state_pub.publish(vision_state_msg); // 重复发布关闭扫描指令，防止视觉节点没有接收到
-                    local_pos_pub.publish(pose);
+                    local_pos_pub.publish(up_down_pose);
                     rate.sleep();
                 }
 
@@ -279,8 +303,6 @@ int main(int argc,char *argv[]){
 
             case SEARCHING:
             {
-                ROS_INFO("Searching for target %d...", searching_index + 1);
-
                 // 如果所有搜索点都已访问，为了防止下标越界直接降落
                 if(searching_index >= searching_points.size()) {
                     ROS_WARN("All searching points reached, and this should not happen. Landing now.");
@@ -288,21 +310,25 @@ int main(int argc,char *argv[]){
                     break;
                 }
 
+                ROS_INFO("Searching for target %d...", searching_index + 1);
+
                 //发布航点
                 nav_pose.header.frame_id = "map";
                 nav_pose.header.stamp = ros::Time::now();
                 nav_pose.pose.position = searching_points[searching_index];
                 nav_goal_pub.publish(nav_pose);
 
-                // 轨迹跟踪
-                local_pos_pub.publish(pose);
-
-                // 到目标点后进入悬停搜索状态
-                if(distance(current_pose, nav_pose.pose.position) < threshold_distance) {
-                    ROS_INFO("Reached searching point %d.", searching_index + 1);
-                    searching_index++;
-                    mission_state = OVERLOOKING;
-                    break;
+                // 轨迹跟踪与检查
+                while(ros::ok()) {
+                    ros::spinOnce();
+                    local_pos_pub.publish(pose);
+                    if(distance(current_pose, nav_pose.pose.position) < threshold_distance) {
+                        ROS_INFO("Reached searching point %d.", searching_index + 1);
+                        searching_index++; 
+                        mission_state = OVERLOOKING;
+                        break; // 跳出循环，进入悬停搜索状态
+                    }
+                    rate.sleep();
                 }
 
                 break;
@@ -318,15 +344,19 @@ int main(int argc,char *argv[]){
                 nav_pose.pose.position = target_pose.pose.position;
                 nav_goal_pub.publish(nav_pose);
 
-                // 轨迹跟踪
-                local_pos_pub.publish(pose);
-
-                // 到目标点后进入调整对准状态
-                if(distance(current_pose, nav_pose.pose.position) < threshold_distance) {
-                    ROS_INFO("Reached bomb target %d.", target_index + 1);
-                    mission_state = ADJUSTING;
-                    break;
+                // 轨迹跟踪与检查
+                while(ros::ok() && distance(current_pose, nav_pose.pose.position) > threshold_distance) {
+                    ros::spinOnce();
+                    local_pos_pub.publish(pose);
+                    // 到目标点后进入调整对准状态
+                    if(distance(current_pose, nav_pose.pose.position) < threshold_distance) {
+                        ROS_INFO("Reached bomb target %d.", target_index + 1);
+                        mission_state = ADJUSTING;
+                        break;
+                    }
+                    rate.sleep();
                 }
+
                 break;
             }
 
@@ -350,37 +380,39 @@ int main(int argc,char *argv[]){
             case BOMBING:
             {
                 ROS_INFO("Start bombing...");
-                pose.header.frame_id = "map";
-                pose.header.stamp = ros::Time::now();
-                pose.pose.position.x = current_pose.pose.position.x;
-                pose.pose.position.y = current_pose.pose.position.y;
-                pose.pose.position.z = 0.3; // 先下降到较低高度再投弹
-                while(ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance){
+                // 先下降到较低高度，并调整姿态后再投弹
+                up_down_pose.header.frame_id = "map";
+                up_down_pose.header.stamp = ros::Time::now();
+                up_down_pose.pose.position.x = current_pose.pose.position.x;
+                up_down_pose.pose.position.y = current_pose.pose.position.y;
+                up_down_pose.pose.position.z = 0.3;
+                up_down_pose.pose.orientation = initial_pose.pose.orientation;
+                while(ros::ok() && distance(current_pose, up_down_pose.pose.position) > threshold_distance){
                     ros::spinOnce();
-                    local_pos_pub.publish(pose);
+                    local_pos_pub.publish(up_down_pose);
                     rate.sleep();
                 }
 
-                //到点后悬停0.5秒并投弹
+                //到点后悬停0.5秒并投弹，然后索引自增
                 last_request = ros::Time::now();
                 target_index_msg.data = target_index;
                 while(ros::ok() && ros::Time::now() - last_request < ros::Time::Duration(0.5)){
                     ros::spinOnce();
-                    local_pos_pub.publish(pose);
+                    local_pos_pub.publish(up_down_pose);
                     manba_pub.publish(target_index_msg);
                     rate.sleep();
                 }
                 target_pose.pose.position.z = -1; // 防止视觉节点没有来得及发布新目标点或发布未找到目标点的消息导致重复导航和投弹
 
                 ROS_INFO("Bombing %d done, rising to normal flight height.", target_index + 1);
-                pose.header.frame_id = "map";
-                pose.header.stamp = ros::Time::now();
-                pose.pose.position.x = current_pose.pose.position.x;
-                pose.pose.position.y = current_pose.pose.position.y;
-                pose.pose.position.z = 1.0; 
-                while(ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance){
+                up_down_pose.header.frame_id = "map";
+                up_down_pose.header.stamp = ros::Time::now();
+                up_down_pose.pose.position.x = current_pose.pose.position.x;
+                up_down_pose.pose.position.y = current_pose.pose.position.y;
+                up_down_pose.pose.position.z = 1.0; 
+                while(ros::ok() && distance(current_pose, up_down_pose.pose.position) > threshold_distance){
                     ros::spinOnce();
-                    local_pos_pub.publish(pose);
+                    local_pos_pub.publish(up_down_pose);
                     rate.sleep();
                 }
 
@@ -400,19 +432,22 @@ int main(int argc,char *argv[]){
                     nav_goal_pub.publish(nav_pose);
                 }
 
-                // 轨迹跟踪
-                local_pos_pub.publish(pose);
+                // 轨迹跟踪与检查
+                while(ros::ok()) {
+                    ros::spinOnce();
+                    local_pos_pub.publish(pose);
 
-                // 到点时索引自增
-                if(distance(current_pose, obstacle_zone_points[obstacle_zone_index]) < threshold_distance) {
-                    ROS_INFO("reached mid point!");
-                    obstacle_zone_index++;
-                }
+                    // 到点时索引自增，若到达全部目标点，则进入降落模式
+                    if(distance(current_pose, obstacle_zone_points[obstacle_zone_index]) < threshold_distance) {
+                        ROS_INFO("reached mid point!");
+                        if (++obstacle_zone_index >= obstacle_zone_points.size()) {
+                            ROS_INFO("All obstacle_zone_points reached!");
+                            mission_state = DESCENDING;
+                        }
+                        break; // 跳出循环，进入下一个避障点或进入降落状态
+                    }
 
-                // 若到达全部目标点，则进入降落模式
-                if (obstacle_zone_index >= obstacle_zone_points.size()) {
-                    ROS_INFO("All obstacle_zone_points reached!");
-                    mission_state = DESCENDING;
+                    rate.sleep();
                 }
 
                 break;
@@ -420,14 +455,14 @@ int main(int argc,char *argv[]){
                
             case DESCENDING: // 先降到较低高度以缓冲
             {
-                pose.header.frame_id = "map";
-                pose.header.stamp = ros::Time::now();
-                pose.pose.position.x = current_pose.pose.position.x;
-                pose.pose.position.y = current_pose.pose.position.y;
-                pose.pose.position.z = 0.3;
-                while (distance(current_pose, pose.pose.position) > threshold_distance && ros::ok()) {
+                up_down_pose.header.frame_id = "map";
+                up_down_pose.header.stamp = ros::Time::now();
+                up_down_pose.pose.position.x = current_pose.pose.position.x;
+                up_down_pose.pose.position.y = current_pose.pose.position.y;
+                up_down_pose.pose.position.z = 0.3;
+                while (distance(current_pose, up_down_pose.pose.position) > threshold_distance && ros::ok()) {
                     ros::spinOnce();
-                    local_pos_pub.publish(pose);
+                    local_pos_pub.publish(up_down_pose);
                     ROS_INFO("Descending to landing height...");
                     rate.sleep();
                 }

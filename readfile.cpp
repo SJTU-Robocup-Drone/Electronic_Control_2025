@@ -1,7 +1,7 @@
 #include <ros/ros.h>
 #include <std_msgs/Int32.h>
 #include <std_msgs/Bool.h>
-#include <geometry_msgs/PoseStamped>
+#include <geometry_msgs/PoseStamped.h>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -105,7 +105,7 @@ int main(int argc, char **argv) {
 
         bool is_found = false;
         for(int i = 4; i >= 0; i--){ // 优先投分数高的靶标
-            if(coordArray[i][0] != -100 && coordArray[i][0] != 50){
+            if(coordArray[i][0] != -100 && coordArray[i][0] != -50){
                 is_found = true;
                 ROS_INFO("target %d found, location: (%.2f, %.2f)", i + 1, coordArray[i][0], coordArray[i][1]);
                 target_pose.header.frame_id = "map";
