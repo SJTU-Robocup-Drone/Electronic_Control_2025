@@ -2,7 +2,7 @@ const int magnetPins[] = {1, 2, 14}; //电磁铁引脚，后续可根据需要�
 
 void setup()
 {
-  Serial.begin(9600);
+  Serial.begin(115200);
   pinMode(magnetPins[0],OUTPUT);
   pinMode(magnetPins[1],OUTPUT);
   pinMode(magnetPins[2],OUTPUT);
