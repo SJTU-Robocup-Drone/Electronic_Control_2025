@@ -362,6 +362,7 @@ int main(int argc,char *argv[]){
 
             case ADJUSTING:
             {
+                /*旧版本的adjusting
                 ROS_INFO("Adjusting position to target...");
                 pose.header.frame_id = "map";
                 pose.header.stamp = ros::Time::now();
@@ -375,6 +376,39 @@ int main(int argc,char *argv[]){
                 }
                 mission_state = BOMBING; // 调整完成后进入投弹状态
                 break;
+                */
+                vision_state_msg.data = true; // 开启视觉扫描
+                ROS_INFO("2nd time of visual scanning...");
+                pose.header.frame_id = "map";
+                pose.pose.position.x = current_pose.pose.position.x;
+                pose.pose.position.y = current_pose.pose.position.y;
+                pose.pose.position.z = 1.0; 
+                last_request = ros::Time::now();
+                while(ros::ok() && ros::Time::now() - last_request < ros::Duration(3.0)) { // 等待视觉识别靶标，时间为3秒
+                    ros::spinOnce();
+                    vision_state_pub.publish(vision_state_msg);
+                    pose.header.stamp = ros::Time::now();// 更新时间戳
+                    local_pos_pub.publish(pose); // 保持悬停
+                    rate.sleep();
+                }
+               
+               vision_state_msg.data = false; // 关闭视觉扫描
+               
+                ROS_INFO("Adjusting position to target...");
+                pose.header.frame_id = "map";
+                pose.header.stamp = ros::Time::now();
+                pose.pose.position.x = target_pose.pose.position.x;
+                pose.pose.position.y = target_pose.pose.position.y;
+                pose.pose.position.z = target_pose.pose.position.z;
+                while (distance(current_pose, pose.pose.position) > threshold_distance/2.0 && ros::ok()) { // 临时减小距离阈值
+                    ros::spinOnce();
+                    pose.header.stamp = ros::Time::now();
+                    vision_state_pub.publishe(vision_state_msg);
+                    local_pos_pub.publish(pose);
+                    rate.sleep();
+                }
+                mission_state = BOMBING; // 调整完成后进入投弹状态
+                break;            
             }
 
             case BOMBING:
