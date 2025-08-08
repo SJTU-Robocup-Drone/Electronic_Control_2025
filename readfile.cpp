@@ -15,6 +15,9 @@ int current_index = 0;
 geometry_msgs::PoseStamped target_pose;
 ros::Time last_request;
 
+const double offset_x = 0.013;
+const double offset_y = -0.09;// 用于补偿无人机中心到摄像头的距离
+
 std::string filename = "/home/amov/board_ws/src/board_ros/scripts/detection_log.txt"; // 视觉组传来的文件路径
 std::string line; // 字符行
 std::string field; // 字段
@@ -77,8 +80,8 @@ void read_file(){
             type = 5;
         }
         if(type >= 0 && coordArray[type][0] != -50){ // 若靶标已投过就不再写入坐标
-            coordArray[type][0] = (coordX + stod(fields[3]) * sin(yaw) - stod(fields[4]) * cos(yaw));//对应物体的X坐标
-            coordArray[type][1] = (coordY - stod(fields[3]) * cos(yaw) - stod(fields[4]) * sin(yaw));//对应物体的y坐标
+            coordArray[type][0] = (coordX + (stod(fields[3]) + offset_x) * sin(yaw) - (stod(fields[4]) + offset_y) * cos(yaw));//对应物体的X坐标
+            coordArray[type][1] = (coordY - (stod(fields[3]) + offset_x) * cos(yaw) - (stod(fields[4]) + offset_y) * sin(yaw));//对应物体的y坐标
             std::cout << type << " "<< coordArray[type][0] << " " << coordArray[type][1] << std::endl;
         }
         ++read_pos;
