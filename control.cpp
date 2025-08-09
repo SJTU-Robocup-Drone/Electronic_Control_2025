@@ -452,7 +452,7 @@ int main(int argc,char *argv[]){
                 while (distance(current_pose, pose.pose.position) > threshold_distance/2.0 && ros::ok()) { // 临时减小距离阈值
                     ros::spinOnce();
                     pose.header.stamp = ros::Time::now();
-                    vision_state_pub.publishe(vision_state_msg);
+                    vision_state_pub.publish(vision_state_msg);
                     local_pos_pub.publish(pose);
                     rate.sleep();
                 }
@@ -480,7 +480,7 @@ int main(int argc,char *argv[]){
                 last_request = ros::Time::now();
                 target_index_msg.data = target_index;
                 manba_pub.publish(target_index_msg);
-                while(ros::ok() && ros::Time::now() - last_request < ros::Time::Duration(0.5)){
+                while(ros::ok() && ros::Time::now() - last_request < ros::Duration(0.5)){
                     ros::spinOnce();
                     local_pos_pub.publish(up_down_pose);
                     rate.sleep();
