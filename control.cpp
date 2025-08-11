@@ -24,6 +24,7 @@ enum MissionState {
     DESCENDING,
     LANDING,
     FOLLOW,
+    RETURNING,
 };
 MissionState mission_state = TAKEOFF;
 
@@ -37,6 +38,7 @@ ros::Subscriber nav_info_sub;  //对接
 ros::Subscriber state_sub;
 ros::ServiceClient arming_client;
 ros::ServiceClient set_mode_client;
+ros::Publisher return_state_pub;
 
 geometry_msgs::PoseStamped up_down_pose; // 用于高度调整的不会被回调函数更新的消息
 geometry_msgs::PoseStamped initial_pose; // 用于起飞时的初始姿态
@@ -48,11 +50,14 @@ mavros_msgs::State current_state;
 mavros_msgs::CommandBool arm_cmd;
 mavros_msgs::SetMode offb_set_mode;
 std_msgs::Bool vision_state_msg; // 发布视觉状态的消息
+std_msgs::Bool return_state_msg; // 发布状态的消息
+
 int target_index = 0; // 当前投弹索引，也可视作已经投弹的数量
 std_msgs::Int32 target_index_msg;
 ros::Time last_request;
 ros::Time takeoff_request; // 用于单独记录起飞请求的时间
 bool is_takeoff = false; // 标记是否已经起飞
+bool is_return = false;
 double offset[3][2] = {{0, -0.13}, {0.13, 0}, {0, 0.13}}; // 用于存储每个弹相对于无人机中心的偏移量，需要根据实际情况测定
 
 double nav_adjust_radius = 0.5; // ego-planner卡住时的导航调整半径
@@ -161,7 +166,15 @@ geometry_msgs::Point predictNextPosition(double predict_dt)
 std::vector<geometry_msgs::Point> searching_points;
 int searching_index = 0; // 当前搜索点的索引
 
+<<<<<<< HEAD
+std::vector<geometry_msgs::Point> obstacle_zone_points = { //存储避障区的入口和出口，出口即终点；注意这里需要提前打点
+    createPoint(8.3, -3.3, 1.0),
+    createPoint(0.05, -3.3, 1.0)
+};
+
+=======
 std::vector<geometry_msgs::Point> obstacle_zone_points;
+>>>>>>> df0e0878218991ccb43492e1905fb19b3cbe7ae8
 int obstacle_zone_index = 0;
 
 int main(int argc,char *argv[]){
@@ -174,13 +187,14 @@ int main(int argc,char *argv[]){
     local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/uav1/mavros/setpoint_position/local", 10);
     nav_goal_pub = nh.advertise<geometry_msgs::PoseStamped>("move_base_simple/goal", 10);
     manba_pub = nh.advertise<std_msgs::Int32>("/manba_input", 10);
-
     vision_state_pub = nh.advertise<std_msgs::Bool>("/vision_state", 10);
-    target_sub = nh.subscribe<geometry_msgs::PoseStamped>("/target", 10, target_cb);
+    return_state_pub = nh.advertise<std_msgs::Bool>("/return_state", 10);
 
+    target_sub = nh.subscribe<geometry_msgs::PoseStamped>("/target", 10, target_cb);
     local_pos_sub = nh.subscribe<nav_msgs::Odometry>("/odom_high_freq", 10, pose_cb);
     nav_info_sub = nh.subscribe<geometry_msgs::Pose>("/pose_cmd", 10, nav_info_cb);
     state_sub = nh.subscribe<mavros_msgs::State>("/uav1/mavros/state", 10, state_cb);
+
     arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/uav1/mavros/cmd/arming");
     set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("/uav1/mavros/set_mode");
 
@@ -211,8 +225,12 @@ int main(int argc,char *argv[]){
                 offb_set_mode.request.custom_mode = "OFFBOARD";
                 arm_cmd.request.value = true;
                 last_request = ros::Time::now();
+                return_state_msg.data = false;
+                return_state_pub.publish(return_state_msg);
+                is_return = false;
 
-                while(ros::ok() && mission_state == TAKEOFF) {
+                while (ros::ok() && mission_state == TAKEOFF)
+                {
                     ros::spinOnce();
                     if( current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(5.0))){
                         if( set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent){
@@ -449,7 +467,12 @@ int main(int argc,char *argv[]){
                     local_pos_pub.publish(pose);
                     rate.sleep();
                 }
-                mission_state = BOMBING; // 调整完成后进入投弹状态
+
+                if ((is_return==false))
+                    mission_state = BOMBING;   // 调整完成后进入投弹状态
+                else
+                    mission_state = DESCENDING;
+
                 break;            
             }
 
@@ -646,6 +669,55 @@ int main(int argc,char *argv[]){
                 }
                 break;
             }
+
+            case RETURNING:
+            {
+                int return_target = 0;
+                int point_num = 5;
+                searching_index = 11;
+                return_state_msg.data = true;
+                return_state_pub.publish(return_state_msg);
+                is_return = true;
+
+                ROS_INFO("Complete bombing.Start waiting for returning. ");
+                pose.header.frame_id = "map";
+                pose.header.stamp = ros::Time::now();
+                pose.pose.position.x = current_pose.pose.position.x;
+                pose.pose.position.y = current_pose.pose.position.y;
+                pose.pose.position.z = 1; // 悬停高度
+
+                last_request = ros::Time::now();
+                while (ros::ok() && ros::Time::now() - last_request < ros::Duration(5.0))
+                { 
+                    ros::spinOnce();
+                    local_pos_pub.publish(pose); // 保持悬停
+                    rate.sleep();
+                }
+
+                ROS_INFO("Start returning to landing space. ");
+                for (int i = 0; i < point_num; i++){
+                    pose.header.frame_id = "map";
+                    pose.header.stamp = ros::Time::now();
+                    pose.pose.position = searching_points[searching_index];
+
+                    while (ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance)
+                    {
+                        ros::spinOnce();
+                        local_pos_pub.publish(pose);
+                        rate.sleep();
+                        // 到目标点后进入调整对准状态
+                        if (distance(current_pose, pose.pose.position) < threshold_distance)
+                        {
+                            return_target++;
+                            searching_index++;
+                            ROS_INFO("Reached returning target %d.", return_target + 1);
+                            break;
+                        }
+                    }
+                    mission_state = BOMB_NAVIGATING;
+                    break;
+                }               
+
         }
     }
     return 0;
