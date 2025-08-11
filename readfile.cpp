@@ -136,7 +136,7 @@ int main(int argc, char **argv)
 
         bool is_found = false;
         if(is_returning){
-            if (coordArray[5][0] != -100 && coordArray[5][0] != 50)
+            if (coordArray[5][0] != -100 && coordArray[5][0] != -50)
             {
                 is_found = true;
                 ROS_INFO("target %d found, location: (%.2f, %.2f)", i + 1, coordArray[i][0], coordArray[i][1]);
@@ -153,7 +153,7 @@ int main(int argc, char **argv)
         else{
             for (int i = 4; i >= 0; i--)
             { // 优先投分数高的靶标
-            if (coordArray[i][0] != -100 && coordArray[i][0] != 50)
+            if (coordArray[i][0] != -100 && coordArray[i][0] != -50)
             {
                 is_found = true;
                 ROS_INFO("target %d found, location: (%.2f, %.2f)", i + 1, coordArray[i][0], coordArray[i][1]);

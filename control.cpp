@@ -310,7 +310,7 @@ int main(int argc,char *argv[]){
             case SEARCHING:
             {
                 // 如果所有搜索点都已访问，为了防止下标越界直接降落
-                if(searching_index >= searching_points.size()) {
+                if(++searching_index >= searching_points.size()) {
                     ROS_WARN("All searching points reached, and this should not happen. Landing now.");
                     mission_state = DESCENDING;
                     break;
@@ -341,7 +341,6 @@ int main(int argc,char *argv[]){
                     ros::spinOnce();
                     if(distance(current_pose, nav_pose.pose.position) < threshold_distance) {
                         ROS_INFO("Reached searching point %d.", searching_index + 1);
-                        searching_index++; 
                         mission_state = OVERLOOKING;
                         nav_state_msg.data = false;
                         nav_state_pub.publish(nav_state_msg);
@@ -375,7 +374,7 @@ int main(int argc,char *argv[]){
                 nav_goal_pub.publish(nav_pose);
 
                 // 轨迹跟踪与检查
-                while(ros::ok() && distance(current_pose, nav_pose.pose.position) > threshold_distance) {
+                while(ros::ok()) {
                     ros::spinOnce();
                     // 到目标点后进入调整对准状态
                     if(distance(current_pose, nav_pose.pose.position) < threshold_distance) {
@@ -643,52 +642,75 @@ int main(int argc,char *argv[]){
 
             case RETURNING:
             {
-                int return_target = 0;
-                int point_num = 5;
-                searching_index = 11;
-                return_state_msg.data = true;
-                return_state_pub.publish(return_state_msg);
-                is_return = true;
+                // int return_target = 0;
+                // int point_num = 5;
+                // searching_index = 11;
+                // return_state_msg.data = true;
+                // return_state_pub.publish(return_state_msg);
+                // is_return = true;
 
-                ROS_INFO("Complete bombing.Start waiting for returning. ");
-                pose.header.frame_id = "map";
-                pose.header.stamp = ros::Time::now();
-                pose.pose.position.x = current_pose.pose.position.x;
-                pose.pose.position.y = current_pose.pose.position.y;
-                pose.pose.position.z = 1; // 悬停高度
+                // ROS_INFO("Complete bombing.Start waiting for returning. ");
+                // pose.header.frame_id = "map";
+                // pose.header.stamp = ros::Time::now();
+                // pose.pose.position.x = current_pose.pose.position.x;
+                // pose.pose.position.y = current_pose.pose.position.y;
+                // pose.pose.position.z = 1; // 悬停高度
 
-                last_request = ros::Time::now();
-                while (ros::ok() && ros::Time::now() - last_request < ros::Duration(5.0))
-                { 
+                // last_request = ros::Time::now();
+                // while (ros::ok() && ros::Time::now() - last_request < ros::Duration(5.0))
+                // { 
+                //     ros::spinOnce();
+                //     local_pos_pub.publish(pose); // 保持悬停
+                //     rate.sleep();
+                // }
+
+                // ROS_INFO("Start returning to landing space. ");
+                // for (int i = 0; i < point_num; i++){
+                //     pose.header.frame_id = "map";
+                //     pose.header.stamp = ros::Time::now();
+                //     pose.pose.position = searching_points[searching_index];
+
+                //     while (ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance)
+                //     {
+                //         ros::spinOnce();
+                //         local_pos_pub.publish(pose);
+                //         rate.sleep();
+                //         // 到目标点后进入调整对准状态
+                //         if (distance(current_pose, pose.pose.position) < threshold_distance)
+                //         {
+                //             return_target++;
+                //             searching_index++;
+                //             ROS_INFO("Reached returning target %d.", return_target + 1);
+                //             break;
+                //         }
+                //     }
+                //     mission_state = BOMB_NAVIGATING;
+                // }
+
+                // 发布航点
+                nav_state_msg.data = true;
+                nav_state_pub.publish(nav_state_msg);
+                nav_pose.header.frame_id = "map";
+                nav_pose.header.stamp = ros::Time::now();
+                nav_pose.pose.position = initial_pose.pose.position;
+                nav_goal_pub.publish(nav_pose);
+
+                // 轨迹跟踪与检查
+                while(ros::ok()) {
                     ros::spinOnce();
-                    local_pos_pub.publish(pose); // 保持悬停
+                    // 到目标点后进入降落状态
+                    if(distance(current_pose, nav_pose.pose.position) < threshold_distance) {
+                        ROS_INFO("Reached returning target.");
+                        mission_state = DESCENDING;
+                        nav_state_msg.data = false;
+                        nav_state_pub.publish(nav_state_msg);
+                        break;
+                    }
                     rate.sleep();
                 }
 
-                ROS_INFO("Start returning to landing space. ");
-                for (int i = 0; i < point_num; i++){
-                    pose.header.frame_id = "map";
-                    pose.header.stamp = ros::Time::now();
-                    pose.pose.position = searching_points[searching_index];
-
-                    while (ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance)
-                    {
-                        ros::spinOnce();
-                        local_pos_pub.publish(pose);
-                        rate.sleep();
-                        // 到目标点后进入调整对准状态
-                        if (distance(current_pose, pose.pose.position) < threshold_distance)
-                        {
-                            return_target++;
-                            searching_index++;
-                            ROS_INFO("Reached returning target %d.", return_target + 1);
-                            break;
-                        }
-                    }
-                    mission_state = BOMB_NAVIGATING;
-                    break;
-                }               
-
+                break;          
+            }
         }
     }
     return 0;
