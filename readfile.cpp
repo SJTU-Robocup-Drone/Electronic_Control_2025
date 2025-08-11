@@ -11,6 +11,7 @@
 #include <cmath>
 
 bool is_bombing = false; // 检测是否投弹
+bool is_returning = false;// 检测是否正在返航
 int current_index = 0;
 geometry_msgs::PoseStamped target_pose;
 ros::Time last_request;
@@ -39,6 +40,11 @@ void man_check_cb(const std_msgs::Int32::ConstPtr &msg)
 {
     is_bombing = true;
 }
+void man_check_cb(const std_msgs::Bool::ConstPtr &msg)
+{
+    is_returning = msg->data;
+}
+
 
 void clear_file()
 {
@@ -119,6 +125,7 @@ int main(int argc, char **argv)
     ros::Publisher target_pub = nh.advertise<geometry_msgs::PoseStamped>("/target", 10);
     ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/uav1/mavros/local_position/pose", 10, pose_cb);
     ros::Subscriber man_check_sub = nh.subscribe<std_msgs::Int32>("/manba_input", 10, man_check_cb);
+    ros::Subscriber return_state_sub = nh.subscribe<std_msgs::Bool>("/return_state", 10, return_state_cb);
     last_request = ros::Time::now();
     ros::Rate rate(20.0);
     clear_file(); // 清空文件内容，避免读取到旧数据
@@ -128,8 +135,24 @@ int main(int argc, char **argv)
         read_file();
 
         bool is_found = false;
-        for (int i = 4; i >= 0; i--)
-        { // 优先投分数高的靶标
+        if(is_returning){
+            if (coordArray[5][0] != -100 && coordArray[5][0] != 50)
+            {
+                is_found = true;
+                ROS_INFO("target %d found, location: (%.2f, %.2f)", i + 1, coordArray[i][0], coordArray[i][1]);
+                target_pose.header.frame_id = "map";
+                target_pose.header.stamp = ros::Time::now();
+                target_pose.pose.position.x = coordArray[5][0];
+                target_pose.pose.position.y = coordArray[5][1];
+                target_pose.pose.position.z = 1.0;
+                target_pub.publish(target_pose);
+                current_index = 5;
+                break;
+            }
+        }
+        else{
+            for (int i = 4; i >= 0; i--)
+            { // 优先投分数高的靶标
             if (coordArray[i][0] != -100 && coordArray[i][0] != 50)
             {
                 is_found = true;
@@ -143,7 +166,9 @@ int main(int argc, char **argv)
                 current_index = i;
                 break;
             }
-        }
+            }
+        }// 对投弹阶段or返航阶段，执行两套提供目标点的逻辑
+        
         if (!is_found)
         {
             target_pose.header.frame_id = "map";
