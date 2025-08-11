@@ -4,6 +4,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Point.h>
+#include <geometry_msgs/Twist.h>
 #include <mavros_msgs/CommandBool.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
@@ -29,6 +30,7 @@ enum MissionState {
 MissionState mission_state = TAKEOFF;
 
 ros::Publisher local_pos_pub;
+ros::Publisher local_vel_pub;
 ros::Publisher nav_goal_pub;
 ros::Publisher nav_state_pub; // 给导航节点发送开启或关闭的指令
 ros::Publisher vision_state_pub; // 发布视觉开启或关闭扫描的指令
@@ -43,6 +45,7 @@ ros::Publisher return_state_pub;
 
 geometry_msgs::PoseStamped initial_pose; // 用于起飞时的初始姿态
 geometry_msgs::PoseStamped pose; // 直接发送给飞控的目标点
+geometry_msgs::Twist vel;
 geometry_msgs::PoseStamped target_pose; // 接收靶标位置，若找到则z坐标为避障飞行高度，z坐标为-1表示未找到靶标
 geometry_msgs::PoseStamped nav_pose; // 发布到egoplanner的目标点
 geometry_msgs::PoseStamped current_pose;
@@ -140,15 +143,7 @@ geometry_msgs::Point predictNextPosition(double predict_dt)
 std::vector<geometry_msgs::Point> searching_points;
 int searching_index = 0; // 当前搜索点的索引
 
-<<<<<<< HEAD
-std::vector<geometry_msgs::Point> obstacle_zone_points = { //存储避障区的入口和出口，出口即终点；注意这里需要提前打点
-    createPoint(8.3, -3.3, 1.0),
-    createPoint(0.05, -3.3, 1.0)
-};
-
-=======
 std::vector<geometry_msgs::Point> obstacle_zone_points;
->>>>>>> df0e0878218991ccb43492e1905fb19b3cbe7ae8
 int obstacle_zone_index = 0;
 
 int main(int argc,char *argv[]){
@@ -159,6 +154,7 @@ int main(int argc,char *argv[]){
     target_pose.pose.position.z = -1;
 
     local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/uav1/mavros/setpoint_position/local", 10);
+    local_vel_pub = nh.advertise<geometry_msgs::Twist>("/uav1/mavros/setpoint_velocity/cmd_vel_unstamped", 10);
     nav_goal_pub = nh.advertise<geometry_msgs::PoseStamped>("/control/move_base_simple/goal", 10);
     nav_state_pub = nh.advertise<std_msgs::Bool>("/nav_state", 10);
     manba_pub = nh.advertise<std_msgs::Int32>("/manba_input", 10);
@@ -261,15 +257,19 @@ int main(int argc,char *argv[]){
             {
                 vision_state_msg.data = true; // 开启视觉扫描
                 ROS_INFO("Start overlooking for target. Rising to overlooking position...");
-                pose.header.frame_id = "map";
-                pose.header.stamp = ros::Time::now();
-                pose.pose.position.x = current_pose.pose.position.x;
-                pose.pose.position.y = current_pose.pose.position.y;
-                pose.pose.position.z = 3.5; // 悬停高度
-                while(ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance) {
+                // pose.header.frame_id = "map";
+                // pose.header.stamp = ros::Time::now();
+                // pose.pose.position.x = current_pose.pose.position.x;
+                // pose.pose.position.y = current_pose.pose.position.y;
+                // pose.pose.position.z = 3.5; // 悬停高度
+                // 速度控制较低速上升，防止吹跑已经投放好的弹
+                vel.linear.x = 0.0;
+                vel.linear.y = 0.0;
+                vel.linear.z = 0.5;
+                while(ros::ok() && current_pose.pose.position.z <= 3.5) {
                     ros::spinOnce();
                     vision_state_pub.publish(vision_state_msg); // 重复发布启动扫描指令，防止视觉节点没有接收到
-                    local_pos_pub.publish(pose);
+                    local_vel_pub.publish(vel);
                     rate.sleep();
                 }
 
@@ -475,19 +475,23 @@ int main(int argc,char *argv[]){
                 target_pose.pose.position.z = -1; // 防止视觉节点没有来得及发布新目标点或发布未找到目标点的消息导致重复导航和投弹
 
                 ROS_INFO("Bombing %d done, rising to normal flight height.", target_index + 1);
-                pose.header.frame_id = "map";
-                pose.header.stamp = ros::Time::now();
-                pose.pose.position.x = current_pose.pose.position.x;
-                pose.pose.position.y = current_pose.pose.position.y;
-                pose.pose.position.z = 1.0; 
-                while(ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance){
+                // pose.header.frame_id = "map";
+                // pose.header.stamp = ros::Time::now();
+                // pose.pose.position.x = current_pose.pose.position.x;
+                // pose.pose.position.y = current_pose.pose.position.y;
+                // pose.pose.position.z = 1.0; 
+                // 速度控制较低速上升，防止吹跑已经投放好的弹
+                vel.linear.x = 0.0;
+                vel.linear.y = 0.0;
+                vel.linear.z = 0.2;
+                while(ros::ok() && current_pose.pose.position.z <= 1.0){
                     ros::spinOnce();
-                    local_pos_pub.publish(pose);
+                    local_vel_pub.publish(vel);
                     rate.sleep();
                 }
 
                 if(++target_index >= 3) mission_state = OBSTACLE_AVOIDING;
-                else if(target_pose.pose.position.z == -1) mission_state = OVERLOOKING;
+                else if(target_pose.pose.position.z == -1) mission_state = SEARCHING;
                 else mission_state = BOMB_NAVIGATING;
                 break;
             }
