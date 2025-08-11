@@ -158,20 +158,10 @@ geometry_msgs::Point predictNextPosition(double predict_dt)
     return p_pred;
 }
 
-std::vector<geometry_msgs::Point> searching_points = {
-    createPoint(1.8, -0.5, 1.0),
-    createPoint(1.8, 2.0, 1.0),
-    createPoint(4.3, 2.0, 1.0),
-    createPoint(4.3, -0.5, 1.0),
-    createPoint(6.8, -0.5, 1.0),
-    createPoint(6.8, 2.0, 1.0)
-};
+std::vector<geometry_msgs::Point> searching_points;
 int searching_index = 0; // 当前搜索点的索引
 
-std::vector<geometry_msgs::Point> obstacle_zone_points = { //存储避障区的入口和出口，出口即终点；注意这里需要提前打点
-    createPoint(8.3, -3.3, 1.0),
-    createPoint(0.05, -3.3, 1.0)
-};
+std::vector<geometry_msgs::Point> obstacle_zone_points;
 int obstacle_zone_index = 0;
 
 int main(int argc,char *argv[]){
@@ -193,6 +183,9 @@ int main(int argc,char *argv[]){
     state_sub = nh.subscribe<mavros_msgs::State>("/uav1/mavros/state", 10, state_cb);
     arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/uav1/mavros/cmd/arming");
     set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("/uav1/mavros/set_mode");
+
+    nh.getParam("searching_points",searching_points);
+    nh.getParam("obstacle_zone_points",obstacle_zone_points);//读取参数
 
     ROS_INFO("Waiting for FCU connection...");
     while (ros::ok() && !current_state.connected) {
