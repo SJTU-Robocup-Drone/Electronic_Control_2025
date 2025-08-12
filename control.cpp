@@ -338,7 +338,7 @@ int main(int argc,char *argv[]){
                 // 如果所有搜索点都已访问，为了防止下标越界直接降落
                 if(++searching_index >= searching_points.size()) {
                     ROS_WARN("All searching points reached, and this should not happen. Landing now.");
-                    mission_state = DESCENDING;
+                    mission_state = RETURNING;
                     break;
                 }
 

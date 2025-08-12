@@ -273,11 +273,11 @@ int main(int argc,char *argv[]){
             {
                 vision_state_msg.data = true; // 开启视觉扫描
                 ROS_INFO("Start overlooking for target. Rising to overlooking position...");
-                // pose.header.frame_id = "map";
-                // pose.header.stamp = ros::Time::now();
-                // pose.pose.position.x = current_pose.pose.position.x;
-                // pose.pose.position.y = current_pose.pose.position.y;
-                // pose.pose.position.z = 3.5; // 悬停高度
+                pose.header.frame_id = "map";
+                pose.header.stamp = ros::Time::now();
+                pose.pose.position.x = current_pose.pose.position.x;
+                pose.pose.position.y = current_pose.pose.position.y;
+                pose.pose.position.z = 3.5; // 悬停高度
                 // 速度控制较低速上升，防止吹跑已经投放好的弹
                 vel.linear.x = 0.0;
                 vel.linear.y = 0.0;
@@ -325,10 +325,10 @@ int main(int argc,char *argv[]){
 
             case SEARCHING:
             {
-                // 如果所有搜索点都已访问，为了防止下标越界直接降落
+                // 如果所有搜索点都已访问，为了防止下标越界直接返回
                 if(searching_index >= searching_points.size()) {
                     ROS_WARN("All searching points reached, and this should not happen. Landing now.");
-                    mission_state = DESCENDING;
+                    mission_state = RETURNING;
                     break;
                 }
 
@@ -496,11 +496,11 @@ int main(int argc,char *argv[]){
                 target_pose.pose.position.z = -1; // 防止视觉节点没有来得及发布新目标点或发布未找到目标点的消息导致重复导航和投弹
 
                 ROS_INFO("Bombing %d done, rising to normal flight height.", target_index + 1);
-                // pose.header.frame_id = "map";
-                // pose.header.stamp = ros::Time::now();
-                // pose.pose.position.x = current_pose.pose.position.x;
-                // pose.pose.position.y = current_pose.pose.position.y;
-                // pose.pose.position.z = 1.0; 
+                pose.header.frame_id = "map";
+                pose.header.stamp = ros::Time::now();
+                pose.pose.position.x = current_pose.pose.position.x;
+                pose.pose.position.y = current_pose.pose.position.y;
+                pose.pose.position.z = 1.0; 
                 // 速度控制较低速上升，防止吹跑已经投放好的弹
                 vel.linear.x = 0.0;
                 vel.linear.y = 0.0;
