@@ -13,6 +13,13 @@
 #include <queue>
 #include <vector>
 #include <deque>
+// ------------- 新增点云占据判断 -------------
+#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/point_cloud2_iterator.h>
+#include <unordered_set>
+#include <mutex>
+#include <memory>
+#include <cmath>
 
 enum MissionState {
     TAKEOFF,
@@ -146,11 +153,105 @@ int searching_index = 0; // 当前搜索点的索引
 std::vector<geometry_msgs::Point> obstacle_zone_points;
 int obstacle_zone_index = 0;
 
+// --- 最小占据查询：固定读取 /world/grid_map/occupancy_inflate ---
+namespace occ_inflate
+{
+
+    static constexpr double kRes = 0.10; // << 固定网格分辨率（和 grid_map 一致时无需改）
+    static const char *const kTopic = "/world/grid_map/occupancy_inflate";
+
+    struct Key
+    {
+        long long x, y, z;
+        bool operator==(const Key &o) const { return x == o.x && y == o.y && z == o.z; }
+    };
+    struct KeyHasher
+    {
+        size_t operator()(const Key &k) const
+        {
+            size_t h = 1469598103934665603ULL;
+            auto mix = [&](long long v)
+            { h ^= std::hash<long long>{}(v); h *= 1099511628211ULL; };
+            mix(k.x);
+            mix(k.y);
+            mix(k.z);
+            return h;
+        }
+    };
+
+    class Store
+    {
+    public:
+        explicit Store(ros::NodeHandle &nh)
+        {
+            sub_ = nh.subscribe(kTopic, 1, &Store::cb, this);
+            ROS_INFO_STREAM("[occ] subscribe " << kTopic << " (res=" << kRes << " m)");
+        }
+
+        bool occupied(const geometry_msgs::Point &p) const
+        {
+            Key c = toKey(p.x, p.y, p.z);
+            std::lock_guard<std::mutex> lk(m_);
+            // 直接命中或检查 26 邻，抵御取整误差
+            if (vox_.count(c))
+                return true;
+            for (int dx = -1; dx <= 1; ++dx)
+                for (int dy = -1; dy <= 1; ++dy)
+                    for (int dz = -1; dz <= 1; ++dz)
+                        if (vox_.count({c.x + dx, c.y + dy, c.z + dz}))
+                            return true;
+            return false;
+        }
+
+    private:
+        static Key toKey(double x, double y, double z)
+        {
+            const double inv = 1.0 / kRes;
+            return Key{(long long)llround(x * inv),
+                       (long long)llround(y * inv),
+                       (long long)llround(z * inv)};
+        }
+
+        void cb(const sensor_msgs::PointCloud2ConstPtr &msg)
+        {
+            std::unordered_set<Key, KeyHasher> s;
+            s.reserve(msg->width * msg->height * 2 + 1024);
+            for (sensor_msgs::PointCloud2ConstIterator<float> it_x(*msg, "x"), it_y(*msg, "y"), it_z(*msg, "z");
+                 it_x != it_x.end(); ++it_x, ++it_y, ++it_z)
+            {
+                const float x = *it_x, y = *it_y, z = *it_z;
+                if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z))
+                    continue;
+                s.insert(toKey(x, y, z));
+            }
+            std::lock_guard<std::mutex> lk(m_);
+            vox_.swap(s);
+        }
+
+        ros::Subscriber sub_;
+        mutable std::mutex m_;
+        std::unordered_set<Key, KeyHasher> vox_;
+    };
+
+    static std::unique_ptr<Store> G;
+
+} // namespace occ_inflate
+
+// --- 对外函数 ---
+bool pointOccupied(const geometry_msgs::Point &p)
+{
+    if (!occ_inflate::G)
+        return false; // 尚未订阅完成前，按未占据
+    return occ_inflate::G->occupied(p);
+}
+
 int main(int argc,char *argv[]){
     ros::init(argc,argv,"control");
     ros::NodeHandle nh;
     ros::Rate rate(20);
-    
+
+    occ_inflate::G.reset(new occ_inflate::Store(nh));  //点云占据查询初始化
+
     target_pose.pose.position.z = -1;
 
     local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/uav1/mavros/setpoint_position/local", 10);
