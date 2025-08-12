@@ -40,7 +40,7 @@ void man_check_cb(const std_msgs::Int32::ConstPtr &msg)
 {
     is_bombing = true;
 }
-void man_check_cb(const std_msgs::Bool::ConstPtr &msg)
+void return_state_cb(const std_msgs::Bool::ConstPtr &msg)
 {
     is_returning = msg->data;
 }
@@ -139,7 +139,7 @@ int main(int argc, char **argv)
             if (coordArray[5][0] != -100 && coordArray[5][0] != -50)
             {
                 is_found = true;
-                ROS_INFO("target %d found, location: (%.2f, %.2f)", i + 1, coordArray[i][0], coordArray[i][1]);
+                ROS_INFO("landing area found, location: (%.2f, %.2f)", coordArray[5][0], coordArray[5][1]);
                 target_pose.header.frame_id = "map";
                 target_pose.header.stamp = ros::Time::now();
                 target_pose.pose.position.x = coordArray[5][0];
