@@ -12,7 +12,9 @@
 
 bool is_bombing = false; // 检测是否投弹
 bool is_returning = false;// 检测是否正在返航
+bool is_done = false;
 int current_index = 0;
+int read_pos = 0; // 当前已经读取过的行数
 geometry_msgs::PoseStamped target_pose;
 ros::Time last_request;
 
@@ -44,7 +46,10 @@ void return_state_cb(const std_msgs::Bool::ConstPtr &msg)
 {
     is_returning = msg->data;
 }
-
+void is_done_cb(const std_msgs::Bool::ConstPtr &msg)
+{
+    is_done = msg->data;
+}
 
 void clear_file()
 {
@@ -65,6 +70,11 @@ void read_file()
         std::cerr << "无法打开文件: " << filename << std::endl;
         return;
     }
+
+    for(int i = 0; i < read_pos; ++i){
+        std::getline(file,line);
+    }//跳过前面的读过的行
+
     while (std::getline(file, line))
     {
         // 对读取到的line进行处理 ；假设每行有6个字段和5个逗号；5个字段分别是时间戳，类别，置信度，相对坐标x，相对坐标y，相对坐标z
@@ -112,7 +122,6 @@ void read_file()
     }
     // 读完所有文件
     file.close();
-    clear_file(); // 读完后清空文件内容，避免下次读取时重复读取
 }
 
 int main(int argc, char **argv)
@@ -123,9 +132,10 @@ int main(int argc, char **argv)
     target_pose.pose.position.z = -1;
 
     ros::Publisher target_pub = nh.advertise<geometry_msgs::PoseStamped>("/target", 10);
-    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/uav1/mavros/local_position/pose", 10, pose_cb);
+    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, pose_cb);
     ros::Subscriber man_check_sub = nh.subscribe<std_msgs::Int32>("/manba_input", 10, man_check_cb);
     ros::Subscriber return_state_sub = nh.subscribe<std_msgs::Bool>("/return_state", 10, return_state_cb);
+    ros::Subscriber is_done_sub = nh.subscribe<std_msgs::Bool>("/done_state", 10, is_done_cb);
     last_request = ros::Time::now();
     ros::Rate rate(20.0);
     clear_file(); // 清空文件内容，避免读取到旧数据
@@ -162,12 +172,13 @@ int main(int argc, char **argv)
                 target_pose.pose.position.x = coordArray[i][0];
                 target_pose.pose.position.y = coordArray[i][1];
                 target_pose.pose.position.z = 1.0;
+                if(i == 0 && !is_done) target_pose.pose.position.z = -1; // 没搜索完时不投最低分靶标
                 target_pub.publish(target_pose);
                 current_index = i;
                 break;
             }
             }
-        }// 对投弹阶段or返航阶段，执行两套提供目标点的逻辑
+        } // 对投弹阶段or返航阶段，执行两套提供目标点的逻辑
         
         if (!is_found)
         {
