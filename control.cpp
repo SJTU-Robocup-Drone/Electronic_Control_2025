@@ -670,7 +670,7 @@ int main(int argc,char *argv[]){
                 pose.header.stamp = ros::Time::now();
                 // 判断视觉误识别
                 if(!is_vision_right){
-                    is_vision_right = false;
+                    is_vision_right = true;
                     ROS_WARN("High target bias. Vision scanning of ADJUSTING may be wrong. Bombing depending on OVERLOOKING...");
                     pose.pose.position = first_target_point;
                     break;
