@@ -27,9 +27,9 @@ double coordArray[6][2] = {{-100, -100}, {-100, -100}, {-100, -100}, {-100, -100
 // -100表示暂时没有坐标信息，-50表示已经投过了
 
 geometry_msgs::PoseStamped current_pose; // 位姿信息
-double yaw;                              // 航偏角
-double coordX;                           // 当前的X坐标
-double coordY;                           // 当前的Y坐标
+double yaw = 0;                              // 航偏角
+double coordX = 0;                           // 当前的X坐标
+double coordY = 0;                           // 当前的Y坐标
 void pose_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
 {
     current_pose = *msg;
@@ -72,13 +72,21 @@ void read_file()
     }
 
     for(int i = 0; i < read_pos; ++i){
-        std::getline(file,line);
-    }//跳过前面的读过的行
+        std::getline(file, line); // 跳过前面的行
+        if(file.eof()){
+            read_pos = i; // 如果文件已经读完了，更新read_pos
+            ROS_WARN("Read position exceeds file length, resetting to %d", read_pos);
+            return; // 直接返回
+        }
+    }// 跳过前面的读过的行
+    // 如果read_pos异常，那么就重置为文件的实际长度
 
     while (std::getline(file, line))
     {
+        fields.clear(); // 清空fields
+        ++read_pos; // 先更新一下书签位置
         // 对读取到的line进行处理 ；假设每行有6个字段和5个逗号；5个字段分别是时间戳，类别，置信度，相对坐标x，相对坐标y，相对坐标z
-        int pos[6] = {-1}; // 通过检测逗号确定各字段
+        int pos[6] = {-1,-1,-1,-1,-1,-1}; // 通过检测逗号确定各字段
         for (int i = 1; i < 6; i++)
         {
             pos[i] = line.find(',', pos[i - 1] + 1);
@@ -92,8 +100,8 @@ void read_file()
         ros::Time log_time = ros::Time::Time(stod(fields[0]));// 日志中记录的时间
         ros::Duration duration = current_time - log_time;// 时间差
         if(duration.toSec() > 0.3) {
-            ROS_INFO("Time duration between current time and log time is too long(%.3f secs). Skip this line of log.",duration.toSec());// 调试信息
-            break;// 过早的记录信息直接跳过
+            ROS_WARN("Time duration between current time and log time is too long(%.3f secs). Skip this line of log.",duration.toSec());// 调试信息
+            continue;// 过早的记录信息直接跳过
         }
         int type = -1; // 类型编号，0~5有效
         if (fields[1] == "tent")
