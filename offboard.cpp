@@ -60,6 +60,7 @@ geometry_msgs::PoseStamped nav_pose; // 发布到egoplanner的目标点
 geometry_msgs::PoseStamped current_pose;
 geometry_msgs::PoseStamped current_nav_pose; // 当前导航点
 geometry_msgs::Point last_nav_point; // 上一个导航点
+geometry_msgs::Point last_target_point; // 上一个识别出的靶标位置
 mavros_msgs::State current_state;
 mavros_msgs::CommandBool arm_cmd;
 mavros_msgs::SetMode offb_set_mode;
@@ -70,6 +71,8 @@ std_msgs::Bool is_done_msg;
 bool is_stuck = false; // 标记当前导航是否卡住
 bool is_once_stuck = false;
 bool is_return = false; // 标记当前是否返航状态
+bool is_vision_right = true; // 标记视觉是否误识别
+int vision_bias_cnt = 0;
 int target_index = 0; // 当前投弹索引，也可视作已经投弹的数量
 std_msgs::Int32 target_index_msg;
 ros::Time last_request;
@@ -104,6 +107,17 @@ void target_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
         }
     }
     if(target_pose.pose.position.z == 2.0) is_moving_target = true; // 如果z坐标为2.0，说明是移动靶
+
+    if(mission_state == ADJUSTING) { // 如果调整阶段靶标位置连续两次偏差超过0.5米，则认为视觉误识别
+        if(distance(target_pose, last_target_point) > 0.5){
+            if(++vision_bias_cnt >= 2){
+                vision_bias_cnt = 0;
+                is_vision_right = false;
+            }
+        }
+        else vision_bias_cnt = 0;
+        last_target_point = target_pose.pose.position;
+    }
 }
 
 struct TimedPose
@@ -567,7 +581,7 @@ int main(int argc,char *argv[]){
                     rate.sleep();
                 }
 
-                // 发布航点并更新导航时间
+                // 发布航点并更新导航时间,初始化上一个靶标点
                 nav_state_msg.data = true;
                 nav_state_pub.publish(nav_state_msg);
                 nav_pose.header.frame_id = "map";
@@ -575,6 +589,7 @@ int main(int argc,char *argv[]){
                 nav_pose.pose.position = target_pose.pose.position;
                 nav_goal_pub.publish(nav_pose);
                 nav_request = ros::Time::now();
+                last_target_point = nav_pose.pose.position;
                 ROS_INFO("Navigating to target at (%.2f, %.2f, %.2f)", target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
 
                 // 轨迹跟踪与检查
@@ -643,7 +658,15 @@ int main(int argc,char *argv[]){
                     rate.sleep();
                 }
                
-               vision_state_msg.data = false; // 关闭视觉扫描
+                vision_state_msg.data = false; // 关闭视觉扫描
+
+                // 如果视觉误识别，直接进入搜索状态
+                if(!is_vision_right){
+                    is_vision_right = false;
+                    ROS_WARN("High target bias. Vision scanning may be wrong. Directly turning to SEARCHING mode...");
+                    mission_state = SEARCHING;
+                    break;
+                }
                
                 ROS_INFO("Adjusting position to target...");
                 pose.header.frame_id = "map";

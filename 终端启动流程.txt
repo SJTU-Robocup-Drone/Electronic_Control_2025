@@ -7,3 +7,6 @@ con2    （启动offboard.cpp）
 read    （启动readfile.cpp）
 d435i    （启动d435i_3d_ROS.py）
 pcd    （启动publish_pcd.cpp，如果不用先建图后定位的方法的话就不用启动这个）
+setp    (启动set_param.cpp)
+
+注意：m1要最先启动，con2启动之前一定要先启动setp，m2一定要在起飞区启动
