@@ -516,7 +516,7 @@ int main(int argc,char *argv[]){
                 last_request = ros::Time::now();
                 pose = current_pose;
                 pose.pose.position.z = 0.9;
-                while(ros::Time::now() - last_request < ros::Duration(3.0)){
+                while(ros::Time::now() - last_request < ros::Duration(5.0)){
                     ros::spinOnce();
                     local_pos_pub.publish(pose);
                     rate.sleep();
@@ -582,7 +582,7 @@ int main(int argc,char *argv[]){
                 last_request = ros::Time::now();
                 pose = current_pose;
                 pose.pose.position.z = 0.9;
-                while(ros::Time::now() - last_request < ros::Duration(3.0)){
+                while(ros::Time::now() - last_request < ros::Duration(5.0)){
                     ros::spinOnce();
                     local_pos_pub.publish(pose);
                     rate.sleep();
@@ -657,7 +657,7 @@ int main(int argc,char *argv[]){
                 pose.header.frame_id = "map";
                 pose.pose.position.x = current_pose.pose.position.x;
                 pose.pose.position.y = current_pose.pose.position.y;
-                pose.pose.position.z = 1.1; 
+                pose.pose.position.z = 1.0; 
                 last_request = ros::Time::now();
                 while(ros::ok() && ros::Time::now() - last_request < ros::Duration(5.0)) { // 等待视觉识别靶标
                     ros::spinOnce();
@@ -769,7 +769,7 @@ int main(int argc,char *argv[]){
                 last_request = ros::Time::now();
                 pose = current_pose;
                 pose.pose.position.z = 0.9;
-                while(ros::Time::now() - last_request < ros::Duration(3.0)){
+                while(ros::Time::now() - last_request < ros::Duration(10.0)){
                     ros::spinOnce();
                     local_pos_pub.publish(pose);
                     rate.sleep();
