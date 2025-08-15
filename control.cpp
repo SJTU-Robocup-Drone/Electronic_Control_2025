@@ -1557,7 +1557,7 @@ int main(int argc,char *argv[]){
                 last_request = ros::Time::now();
                 pose = current_pose;
                 pose.pose.position.z = 0.9;
-                while(ros::Time::now() - last_request < ros::Duration(3.0)){
+                while(ros::Time::now() - last_request < ros::Duration(5.0)){
                     ros::spinOnce();
                     local_pos_pub.publish(pose);
                     rate.sleep();
@@ -1623,7 +1623,7 @@ int main(int argc,char *argv[]){
                 last_request = ros::Time::now();
                 pose = current_pose;
                 pose.pose.position.z = 0.9;
-                while(ros::Time::now() - last_request < ros::Duration(3.0)){
+                while(ros::Time::now() - last_request < ros::Duration(5.0)){
                     ros::spinOnce();
                     local_pos_pub.publish(pose);
                     rate.sleep();
@@ -1721,6 +1721,8 @@ int main(int argc,char *argv[]){
                 }
                 else if(!adjust_has_target){
                     ROS_WARN("Adjusting stage hasn't scanned a target. Vision scanning of OVERLOOKING may be wrong. Directly turning to SEARCHING mode...");
+                    mission_state = SEARCHING;
+                    break;
                 }
                 else{
                     pose.pose.position.x = target_pose.pose.position.x;
@@ -1728,7 +1730,7 @@ int main(int argc,char *argv[]){
                     pose.pose.position.z = target_pose.pose.position.z;
                 }
                 ROS_INFO("Adjusting position to target...");
-                while (distance(current_pose, pose.pose.position) > threshold_distance/2.0 && ros::ok()) { // 临时减小距离阈值
+                while (distance(current_pose, pose.pose.position) > threshold_distance && ros::ok()) { // 临时减小距离阈值
                     ros::spinOnce();
                     pose.header.stamp = ros::Time::now();
                     vision_state_pub.publish(vision_state_msg);
@@ -1746,11 +1748,11 @@ int main(int argc,char *argv[]){
                 // 先下降到较低高度，并调整姿态后再投弹
                 pose.header.frame_id = "map";
                 pose.header.stamp = ros::Time::now();
-                pose.pose.position.x = current_pose.pose.position.x;
-                pose.pose.position.y = current_pose.pose.position.y;
-                pose.pose.position.z = 0.3;
+                // pose.pose.position.x = current_pose.pose.position.x;
+                // pose.pose.position.y = current_pose.pose.position.y;
+                pose.pose.position.z = 0.1;
                 pose.pose.orientation = initial_pose.pose.orientation;
-                while(ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance){
+                while(ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance/2.0){
                     ros::spinOnce();
                     local_pos_pub.publish(pose);
                     rate.sleep();
