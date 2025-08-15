@@ -1330,7 +1330,7 @@ void nav_check_cb(const mavros_msgs::PositionTarget::ConstPtr &msg)
 }
 
 int main(int argc,char *argv[]){
-    ros::init(argc,argv,"offb_node");
+    ros::init(argc,argv,"control");
     ros::NodeHandle nh;
     ros::Rate rate(20);
     
