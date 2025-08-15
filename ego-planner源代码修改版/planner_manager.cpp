@@ -1,7 +1,6 @@
 // #include <fstream>
 #include <plan_manage/planner_manager.h>
 #include <thread>
-#include <std_msgs/Bool.h>
 
 namespace ego_planner
 {
@@ -14,9 +13,9 @@ namespace ego_planner
 
   void EGOPlannerManager::initPlanModules(ros::NodeHandle &nh, PlanningVisualization::Ptr vis)
   {
-  // 新增：参数调整初始化
-  nh_ = nh; // 保存一份 NodeHandle，供回调/重载用
-  param_set_sub_ = nh_.subscribe<std_msgs::Bool>("/obs_param_set", 1, &EGOPlannerManager::obsParamSetCb, this);
+    // 新增：参数调整
+    nh_ = nh; // 保存一份 NodeHandle，供回调/重载用
+    param_set_sub_ = nh_.subscribe<std_msgs::Bool>("/obs_param_set", 1, &EGOPlannerManager::obsParamSetCb, this);
 
     /* read algorithm parameters */
 
@@ -40,6 +39,15 @@ namespace ego_planner
     visualization_ = vis;
   }
 
+  // 新增：参数调整
+  void EGOPlannerManager::obsParamSetCb(const std_msgs::Bool::ConstPtr& msg)
+  {
+    if (!msg->data) return;
+    bspline_optimizer_rebound_->setParam(nh_);
+    grid_map_->reloadParams(nh_); // 若重算膨胀/天花板，可能较耗时，不建议在回调做
+    ROS_INFO("[EGO] params reloaded in callback");
+  }
+
   // !SECTION
 
   // SECTION rebond replanning
@@ -56,7 +64,6 @@ namespace ego_planner
     cout << "start: " << start_pt.transpose() << ", " << start_vel.transpose() << "\ngoal:" << local_target_pt.transpose() << ", " << local_target_vel.transpose()
          << endl;
 
-    ROS_INFO_STREAM("Current time: " << ros::Time::now().toSec());
     if ((start_pt - local_target_pt).norm() < 0.2)
     {
       cout << "Close to goal" << endl;
@@ -275,15 +282,6 @@ namespace ego_planner
     // success. YoY
     continous_failures_count_ = 0;
     return true;
-  }
-
-  void EGOPlannerManager::obsParamSetCb(const std_msgs::Bool::ConstPtr& msg)
-  {
-    if (!msg->data) return;
-    std::lock_guard<std::mutex> lk(param_mtx_);
-    bspline_optimizer_rebound_->setParam(nh_);
-    grid_map_->reloadParams(nh_); // 若重算膨胀/天花板，可能较耗时，不建议在回调做
-    ROS_INFO("[EGO] params reloaded in callback");
   }
 
   bool EGOPlannerManager::EmergencyStop(Eigen::Vector3d stop_pos)

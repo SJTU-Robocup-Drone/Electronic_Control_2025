@@ -8,7 +8,6 @@
 #include <iostream>
 #include <random>
 #include <nav_msgs/Odometry.h>
-#include <std_msgs/Bool.h>
 #include <queue>
 #include <ros/ros.h>
 #include <tuple>
@@ -28,8 +27,6 @@
 #define logit(x) (log((x) / (1 - (x))))
 
 using namespace std;
-
-ros::Subscriber param_set_sub; // 新增：参数调整相关变量
 
 // voxel hashing
 template <typename T>
@@ -188,6 +185,9 @@ public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
 private:
+  // 新增：参数调整
+  ros::NodeHandle nh_;                           // 可选：保存一个句柄（若你喜欢）
+
   MappingParameters mp_;
   MappingData md_;
 

@@ -703,7 +703,7 @@ int main(int argc,char *argv[]){
                 pose.header.stamp = ros::Time::now();
                 pose.pose.position.x = current_pose.pose.position.x;
                 pose.pose.position.y = current_pose.pose.position.y;
-                pose.pose.position.z = 0.3;
+                pose.pose.position.z = 0.2;
                 pose.pose.orientation = initial_pose.pose.orientation;
                 while(ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance){
                     ros::spinOnce();
