@@ -445,7 +445,7 @@ int main(int argc,char *argv[]){
 
                 ROS_INFO("Reached overlooking position. Scanning for target...");
                 last_request = ros::Time::now();
-                while(ros::ok() && ros::Time::now() - last_request < ros::Duration(7.0)) { // 等待视觉识别靶标
+                while(ros::ok() && ros::Time::now() - last_request < ros::Duration(10.0)) { // 等待视觉识别靶标
                     ros::spinOnce();
                     if (target_pose.pose.position.z != -1)
                         break;
@@ -705,7 +705,7 @@ int main(int argc,char *argv[]){
                 pose.header.stamp = ros::Time::now();
                 // pose.pose.position.x = current_pose.pose.position.x;
                 // pose.pose.position.y = current_pose.pose.position.y;
-                pose.pose.position.z = 0.1;
+                pose.pose.position.z = 0.3;
                 pose.pose.orientation = initial_pose.pose.orientation;
                 while(ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance/2.0){
                     ros::spinOnce();
