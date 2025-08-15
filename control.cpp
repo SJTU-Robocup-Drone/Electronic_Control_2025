@@ -786,7 +786,7 @@ int main(int argc,char *argv[]){
                 // 轨迹跟踪与检查
                 while(ros::ok()) {
                     ros::spinOnce();
-                    local_pos_pub.publish(pose);
+                    // local_pos_pub.publish(pose);
 
                     // 到点时索引自增，若到达全部目标点，则进入降落模式
                     if(distance(current_pose, obstacle_zone_points[obstacle_zone_index]) < threshold_distance) {
