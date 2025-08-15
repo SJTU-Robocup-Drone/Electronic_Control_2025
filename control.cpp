@@ -516,7 +516,7 @@ int main(int argc,char *argv[]){
                 last_request = ros::Time::now();
                 pose = current_pose;
                 pose.pose.position.z = 0.9;
-                while(ros::Time::now() - last_request < ros::Duration(3.0)){
+                while(ros::Time::now() - last_request < ros::Duration(5.0)){
                     ros::spinOnce();
                     local_pos_pub.publish(pose);
                     rate.sleep();
@@ -582,7 +582,7 @@ int main(int argc,char *argv[]){
                 last_request = ros::Time::now();
                 pose = current_pose;
                 pose.pose.position.z = 0.9;
-                while(ros::Time::now() - last_request < ros::Duration(3.0)){
+                while(ros::Time::now() - last_request < ros::Duration(5.0)){
                     ros::spinOnce();
                     local_pos_pub.publish(pose);
                     rate.sleep();
@@ -769,7 +769,7 @@ int main(int argc,char *argv[]){
                 last_request = ros::Time::now();
                 pose = current_pose;
                 pose.pose.position.z = 0.9;
-                while(ros::Time::now() - last_request < ros::Duration(3.0)){
+                while(ros::Time::now() - last_request < ros::Duration(10.0)){
                     ros::spinOnce();
                     local_pos_pub.publish(pose);
                     rate.sleep();
