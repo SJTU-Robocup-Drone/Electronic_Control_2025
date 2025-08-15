@@ -163,7 +163,7 @@ def detect_targets():
                         cy = (ymin + ymax) // 2
 
                         # depth_value = get_valid_depth(depth_image, xmin, ymin, xmax, ymax, depth_scale, cx, cy)
-                        depth_value = odom_pos.z + 0.28 # 利用odom_pos.z确定Z坐标（单位是毫米）
+                        depth_value = odom_pos.z + 0.16 # 利用odom_pos.z确定Z坐标（单位是毫米）
                         point_3d = rs.rs2_deproject_pixel_to_point(color_intrinsics, [cx, cy],
                                                                    depth_value) if depth_value > 0 else (0, 0, 0)
                         x, y, z = point_3d

@@ -45,6 +45,7 @@ ros::Publisher vision_state_pub; // 发布视觉开启或关闭扫描的指令
 ros::Publisher return_state_pub;
 ros::Publisher is_done_pub;
 ros::Subscriber target_sub; //从视觉对接节点的话题接收当前靶标的坐标
+ros::Publisher param_set_pub;
 ros::Publisher manba_pub;
 ros::Subscriber local_pos_sub;
 ros::Subscriber state_sub;
@@ -69,6 +70,7 @@ std_msgs::Bool nav_state_msg; // 发布导航状态的消息
 std_msgs::Bool vision_state_msg; // 发布视觉状态的消息
 std_msgs::Bool return_state_msg;
 std_msgs::Bool is_done_msg;
+std_msgs::Bool param_set_msg;
 bool is_stuck = false; // 标记当前导航是否卡住
 bool is_once_stuck = false;
 bool is_return = false; // 标记当前是否返航状态
@@ -300,6 +302,7 @@ int main(int argc,char *argv[]){
     nav_state_pub = nh.advertise<std_msgs::Bool>("/nav_state", 10);
     return_state_pub = nh.advertise<std_msgs::Bool>("/return_state", 10);
     is_done_pub = nh.advertise<std_msgs::Bool>("/done_state", 10);
+    param_set_pub = nh.advertise<std_msgs::Bool>("/obs_param_set", 10);
     manba_pub = nh.advertise<std_msgs::Int32>("/manba_input", 10);
 
     vision_state_pub = nh.advertise<std_msgs::Bool>("/vision_state", 10);
@@ -747,7 +750,7 @@ int main(int argc,char *argv[]){
 
             case OBSTACLE_AVOIDING: // TODO: 这里可以添加一个类似投弹后的adjusting状态，以保证精准降落
             {
-                if(!is_param_set){
+                if(!is_param_set && obstacle_zone_index >= 1){
                     is_param_set = true;
                     nh.setParam("grid_map/obstacles_inflation", 0.1);
                     nh.setParam("grid_map/depth_filter_mindist", 0.5);
@@ -758,7 +761,20 @@ int main(int argc,char *argv[]){
                     nh.setParam("optimization/lambda_fitness", 120);
                     nh.setParam("optimization/dist0", 0.35);
                     nh.setParam("bspline/limit_ratio", 1.08);
+                    param_set_msg.data = true;
+                    param_set_pub.publish(param_set_msg);
                 }
+
+                ROS_INFO("Hovering before navigating...");
+                last_request = ros::Time::now();
+                pose = current_pose;
+                pose.pose.position.z = 0.9;
+                while(ros::Time::now() - last_request < ros::Duration(3.0)){
+                    ros::spinOnce();
+                    local_pos_pub.publish(pose);
+                    rate.sleep();
+                }
+                
                 // 发布航点
                 if (obstacle_zone_index < obstacle_zone_points.size()) {
                     nav_pose.header.frame_id = "map";
