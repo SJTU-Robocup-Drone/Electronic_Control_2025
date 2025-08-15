@@ -155,6 +155,27 @@ void GridMap::initMap(ros::NodeHandle &nh)
   // eng_ = default_random_engine(rd());
 }
 
+// 新增：参数调整
+void GridMap::reloadParams(const ros::NodeHandle& nh) {
+  std::lock_guard<std::mutex> lk(map_mtx_);
+
+  // 读取你要热改的参数（结构型参数如 resolution/map_size 不建议热改）
+  nh.param("grid_map/obstacles_inflation",  mp_.obstacles_inflation_, mp_.obstacles_inflation_);
+  nh.param("grid_map/virtual_ceil_height",  mp_.virtual_ceil_height_, mp_.virtual_ceil_height_);
+  nh.param("grid_map/depth_filter_mindist", mp_.depth_filter_mindist_, mp_.depth_filter_mindist_);
+  nh.param("grid_map/plan_2d_mode",         mp_.plan_2d_mode_,        mp_.plan_2d_mode_);
+  nh.param("grid_map/plan_2d_z",            mp_.plan_2d_z_,           mp_.plan_2d_z_);
+  nh.param("grid_map/plan_2d_band",         mp_.plan_2d_band_,        mp_.plan_2d_band_);
+
+  // 关键：按新参数重建“膨胀后的占据图 + 天花板/2D高度带”
+  // 如果你已有这个函数，用它：会把 md_.occupancy_buffer_inflate_ 从 md_.occupancy_buffer_ 重算
+  clearAndInflateLocalMap();
+
+  ROS_INFO("[grid_map] params reloaded: infl=%.2f ceil=%.2f 2D=%d z=%.2f band=%.2f mindist=%.2f",
+            mp_.obstacles_inflation_, mp_.virtual_ceil_height_, (int)mp_.plan_2d_mode_,
+            mp_.plan_2d_z_, mp_.plan_2d_band_, mp_.depth_filter_mindist_);
+}
+
 void GridMap::resetBuffer()
 {
   Eigen::Vector3d min_pos = mp_.map_min_boundary_;

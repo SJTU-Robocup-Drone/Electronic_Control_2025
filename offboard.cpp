@@ -60,6 +60,7 @@ geometry_msgs::PoseStamped nav_pose; // 发布到egoplanner的目标点
 geometry_msgs::PoseStamped current_pose;
 geometry_msgs::PoseStamped current_nav_pose; // 当前导航点
 geometry_msgs::Point last_nav_point; // 上一个导航点
+geometry_msgs::Point first_target_point; // OVERLOOKING识别出的靶标位置
 geometry_msgs::Point last_target_point; // 上一个识别出的靶标位置
 mavros_msgs::State current_state;
 mavros_msgs::CommandBool arm_cmd;
@@ -72,6 +73,7 @@ bool is_stuck = false; // 标记当前导航是否卡住
 bool is_once_stuck = false;
 bool is_return = false; // 标记当前是否返航状态
 bool is_vision_right = true; // 标记视觉是否误识别
+bool adjust_has_target = false; // 标记ADJUSTING阶段是否扫到目标点
 int vision_bias_cnt = 0;
 int target_index = 0; // 当前投弹索引，也可视作已经投弹的数量
 std_msgs::Int32 target_index_msg;
@@ -108,7 +110,7 @@ void target_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
     }
     if(target_pose.pose.position.z == 2.0) is_moving_target = true; // 如果z坐标为2.0，说明是移动靶
 
-    if(mission_state == ADJUSTING) { // 如果调整阶段靶标位置连续两次偏差超过0.5米，则认为视觉误识别
+    if(mission_state == ADJUSTING) { // 如果调整阶段靶标位置连续两次偏差超过0.5米，则认为视觉误识别（假定OVERLOOKING的识别结果没有问题，因为之前没有出过错）
         if(distance(target_pose, last_target_point) > 0.5){
             if(++vision_bias_cnt >= 2){
                 vision_bias_cnt = 0;
@@ -117,6 +119,7 @@ void target_cb(const geometry_msgs::PoseStamped::ConstPtr& msg){
         }
         else vision_bias_cnt = 0;
         last_target_point = target_pose.pose.position;
+        adjust_has_target = true;
     }
 }
 
@@ -581,7 +584,7 @@ int main(int argc,char *argv[]){
                     rate.sleep();
                 }
 
-                // 发布航点并更新导航时间,初始化上一个靶标点
+                // 发布航点并更新导航时间,初始化第一个和上一个靶标点
                 nav_state_msg.data = true;
                 nav_state_pub.publish(nav_state_msg);
                 nav_pose.header.frame_id = "map";
@@ -589,6 +592,7 @@ int main(int argc,char *argv[]){
                 nav_pose.pose.position = target_pose.pose.position;
                 nav_goal_pub.publish(nav_pose);
                 nav_request = ros::Time::now();
+                first_target_point = nav_pose.pose.position;
                 last_target_point = nav_pose.pose.position;
                 ROS_INFO("Navigating to target at (%.2f, %.2f, %.2f)", target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
 
@@ -644,6 +648,7 @@ int main(int argc,char *argv[]){
                 break;
                 */
                 vision_state_msg.data = true; // 开启视觉扫描
+                adjust_has_target = false;
                 ROS_INFO("2nd time of visual scanning...");
                 pose.header.frame_id = "map";
                 pose.pose.position.x = current_pose.pose.position.x;
@@ -660,20 +665,24 @@ int main(int argc,char *argv[]){
                
                 vision_state_msg.data = false; // 关闭视觉扫描
 
-                // 如果视觉误识别，直接进入搜索状态
-                if(!is_vision_right){
-                    is_vision_right = false;
-                    ROS_WARN("High target bias. Vision scanning may be wrong. Directly turning to SEARCHING mode...");
-                    mission_state = SEARCHING;
-                    break;
-                }
-               
-                ROS_INFO("Adjusting position to target...");
                 pose.header.frame_id = "map";
                 pose.header.stamp = ros::Time::now();
-                pose.pose.position.x = target_pose.pose.position.x;
-                pose.pose.position.y = target_pose.pose.position.y;
-                pose.pose.position.z = target_pose.pose.position.z;
+                // 判断视觉误识别
+                if(!is_vision_right){
+                    is_vision_right = true;
+                    ROS_WARN("High target bias. Vision scanning of ADJUSTING may be wrong. Bombing depending on OVERLOOKING...");
+                    pose.pose.position = first_target_point;
+                    break;
+                }
+                else if(!adjust_has_target){
+                    ROS_WARN("Adjusting stage hasn't scanned a target. Vision scanning of OVERLOOKING may be wrong. Directly turning to SEARCHING mode...")
+                }
+                else{
+                    pose.pose.position.x = target_pose.pose.position.x;
+                    pose.pose.position.y = target_pose.pose.position.y;
+                    pose.pose.position.z = target_pose.pose.position.z;
+                }
+                ROS_INFO("Adjusting position to target...");
                 while (distance(current_pose, pose.pose.position) > threshold_distance/2.0 && ros::ok()) { // 临时减小距离阈值
                     ros::spinOnce();
                     pose.header.stamp = ros::Time::now();
