@@ -97,7 +97,7 @@ void read_file()
         fields.push_back(field);
         //加入时间判断
         ros::Time current_time = ros::Time::now();// 当前时间
-        ros::Time log_time = ros::Time::Time(stod(fields[0]));// 日志中记录的时间
+        ros::Time log_time(stod(fields[0]));// 日志中记录的时间
         ros::Duration duration = current_time - log_time;// 时间差
         if(duration.toSec() > 0.3) {
             ROS_WARN("Time duration between current time and log time is too long(%.3f secs). Skip this line of log.",duration.toSec());// 调试信息

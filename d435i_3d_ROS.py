@@ -27,7 +27,7 @@ items = [
 
 def check_queue(items, class_id, confidence, x, y, z):
     item = items[class_id]
-    if confidence > 0.3:      #模型默认剔除置信度低于0.25的目标框，此处再升高
+    if confidence > 0.5:      #模型默认剔除置信度低于0.25的目标框，此处再升高
         if item[1] < 20:
             item[1] += 1
             item[2].append([x, y, z])
