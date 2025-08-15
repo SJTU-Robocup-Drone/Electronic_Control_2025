@@ -2,7 +2,7 @@
 
 import rospy
 from std_msgs.msg import Bool
-#import cv2
+#import cv2  # 取消注释cv2以支持视频录制和显示
 import torch
 import numpy as np
 import pyrealsense2 as rs
@@ -10,18 +10,23 @@ import time
 import os
 from utils.augmentations import letterbox
 from utils.general import non_max_suppression
-import threading  # 添加线程支持
+import threading
+from nav_msgs.msg import Odometry
 
 # 视觉状态控制
-scanning_active = False # 标记扫描是否开启
+scanning_active = False
 detection_thread = None
-stop_event = threading.Event()  # 用于停止检测线程
+stop_event = threading.Event()
+
+# 新增视频录制变量
+#video_writer = None
 
 # 初始化滑动平均缓存
 items = [
     ["bridge", 0, []], ["bunker", 0, []], ["car", 0, []],
     ["Helicopter", 0, []], ["tank", 0, []], ["tent", 0, []]
 ]
+
 
 # 坐标缓存滑动平均
 
@@ -62,25 +67,37 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
     coords[:, :4] = coords[:, :4].clamp(min=0)
     return coords
 
-# 获取检测框内有效深度均值（单位：米）,取四分之一
 
 def get_valid_depth(depth_image, xmin, ymin, xmax, ymax, depth_scale, cx, cy):
     h, w = depth_image.shape
+
+    # 如果中心点太靠近边缘，直接返回 0（避免无效深度）
     if cx < 2 or cx >= w - 2 or cy < 2 or cy >= h - 2:
         return 0
-    length = abs(xmax - xmin)
-    width = abs(ymax - ymin)
-    patch = depth_image[cy - int(width / 4) + 1:cy + int(width / 4) - 1,
-            cx - int(length / 4) + 1:cx + int(length / 4) - 1]
-    patch = patch[patch > 0]
+
+    # 计算 ROI 大小（取检测框的 1/4 区域）
+    roi_width = max(1, (xmax - xmin) // 2)
+    roi_height = max(1, (ymax - ymin) // 2)
+
+    # 计算 ROI 边界（确保不超出图像范围）
+    a = max(0, cx - roi_width)
+    b = min(w, cx + roi_width)
+    c = max(0, cy - roi_height)
+    d = min(h, cy + roi_height)
+
+    # 提取 ROI 并计算有效深度
+    patch = depth_image[c:d, a:b]
+    patch = patch[patch > 0]  # 过滤无效深度（0 值）
+
     if patch.size == 0:
         return 0
     return np.mean(patch) * depth_scale
 
-# 主检测逻辑函数
 def detect_targets():
+    global video_writer
+
     # 初始化 YOLO 模型
-    model_path = 'runs/train/exp_gpu8/weights/best_0702.pt'
+    model_path = '/home/amov/board_ws/src/board_ros/scripts/best_0801.pt'
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     rospy.loginfo("[INFO] 加载模型中...")
     model = torch.load(model_path, map_location=device)['model'].float()
@@ -100,7 +117,16 @@ def detect_targets():
     color_intrinsics = profile.get_stream(rs.stream.color).as_video_stream_profile().get_intrinsics()
     align = rs.align(rs.stream.color)
 
-    output_file = "detection_log.txt"
+    # 初始化视频录制
+    # timestamp = time.strftime("%Y%m%d_%H%M%S")
+    # video_dir = "/home/amov/detection_videos"  # 手动指定主目录绝对路径
+    # os.makedirs(video_dir, exist_ok=True)  # 确保目录存在
+    # video_path = os.path.join(video_dir, f"detection_{timestamp}.avi")
+    # fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    # video_writer = cv2.VideoWriter(video_path, fourcc, 30.0, (640, 480))
+    # rospy.loginfo(f"[INFO] 开始视频录制: {video_path}")
+
+    output_file = "/home/amov/board_ws/src/board_ros/scripts/detection_log.txt"
     frame_count = 0
 
     try:
@@ -136,8 +162,10 @@ def detect_targets():
                         cx = (xmin + xmax) // 2
                         cy = (ymin + ymax) // 2
 
-                        depth_value = get_valid_depth(depth_image, xmin, ymin, xmax, ymax, depth_scale, cx, cy)
-                        point_3d = rs.rs2_deproject_pixel_to_point(color_intrinsics, [cx, cy], depth_value) if depth_value > 0 else (0, 0, 0)
+                        # depth_value = get_valid_depth(depth_image, xmin, ymin, xmax, ymax, depth_scale, cx, cy)
+                        depth_value = odom_pos.z + 0.28 # 利用odom_pos.z确定Z坐标（单位是毫米）
+                        point_3d = rs.rs2_deproject_pixel_to_point(color_intrinsics, [cx, cy],
+                                                                   depth_value) if depth_value > 0 else (0, 0, 0)
                         x, y, z = point_3d
                         class_id = int(cls)
                         x, y, z = check_queue(items, class_id, float(conf), x, y, z)
@@ -146,9 +174,13 @@ def detect_targets():
                         coord_text = f"X:{x:.2f} Y:{y:.2f} Z:{z:.2f}"
                         full_label = f"{label} {coord_text}"
 
+                        # 绘制检测框和标签（用于视频录制）
                         #cv2.rectangle(color_image, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
                         #cv2.putText(color_image, full_label, (xmin, ymin - 10),
                                     #cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 0), 2)
+
+                        if conf > 0.5:
+                            rospy.loginfo(f"检测到物体: {names[int(cls)]}, 坐标: X={x:.2f}, Y={y:.2f}, Z={z:.2f}, 置信度: {conf:.2f}")
 
                         if frame_count % 30 == 0:
                             timestamp = time.time()
@@ -156,55 +188,55 @@ def detect_targets():
                             log.flush()
                             os.fsync(log.fileno())
 
+                # 写入视频帧（带检测框）
+                #video_writer.write(color_image)
+
                 total_time = time.time() - start_time
                 if total_time < 1 / 30:
                     time.sleep(1 / 30 - total_time)
 
-                #if cv2.waitKey(1) & 0xFF == 27:
-                    #break
-
     except KeyboardInterrupt:
         rospy.loginfo("[INFO] 用户中断程序。")
     finally:
+        # 释放视频录制资源
+        #if video_writer is not None:
+           #video_writer.release()
+            #rospy.loginfo("[INFO] 视频录制已停止")
         pipeline.stop()
-        #cv2.destroyAllWindows()
         rospy.loginfo("[INFO] 已安全退出。")
-
 
 
 def vision_state_callback(msg):
     global scanning_active, detection_thread, stop_event
-    
-    # 当收到True且当前扫描状态为关闭时，启动扫描并标记状态为开启
+
     if msg.data and not scanning_active:
         rospy.loginfo("[INFO] 收到视觉启动指令，开始扫描...")
         scanning_active = True
         stop_event.clear()
-            
-        # 创建并启动检测线程
+
         detection_thread = threading.Thread(target=detect_targets)
-        detection_thread.daemon = True  # 设置为守护线程
+        detection_thread.daemon = True
         detection_thread.start()
-    
-    # 当收到False且当前扫描状态为开启时，停止扫描并标记状态为关闭
+
     elif not msg.data and scanning_active:
         rospy.loginfo("[INFO] 收到视觉停止指令，停止扫描...")
-        stop_event.set()  # 设置停止事件
+        stop_event.set()
         scanning_active = False
+
+def odom_callback(msg):
+    global odom_pos
+    odom_pos = msg.pose.pose.position
 
 
 if __name__ == "__main__":
     rospy.init_node("object_detector")
-    
-    # 订阅/vision_state话题（std_msgs/Bool）
     rospy.Subscriber("/vision_state", Bool, vision_state_callback)
-    
+    rospy.Subscriber("/odom_high_freq", Odometry, odom_callback)
     rospy.loginfo("[INFO] 视觉节点已启动，等待/vision_state指令...")
-    
+
     try:
-        rospy.spin()  # 保持节点运行
+        rospy.spin()
     except rospy.ROSInterruptException:
-        # 确保节点退出时停止扫描
         if scanning_active:
             stop_event.set()
             detection_thread.join(timeout=1.0)
