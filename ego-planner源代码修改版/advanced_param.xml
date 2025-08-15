@@ -117,7 +117,7 @@
 
   <!-- trajectory optimization -->
     <param name="optimization/lambda_smooth" value="1.0" type="double"/>
-    <param name="optimization/lambda_collision" value="10.0" type="double"/>
+    <param name="optimization/lambda_collision" value="50.0" type="double"/>
     <param name="optimization/lambda_feasibility" value="8.0" type="double"/>
     <param name="optimization/lambda_fitness" value="8.0" type="double"/>
     <param name="optimization/dist0" value="0.3" type="double"/>
