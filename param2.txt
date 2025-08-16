@@ -1,0 +1,25 @@
+num of searching points = 4;
+searching point 0 x = 2.8;
+searching point 0 y = -1.0;
+searching point 0 z = 1.0;
+searching point 1 x = 4.8;
+searching point 1 y = -1.5;
+searching point 1 z = 1.0;
+searching point 2 x = 5.5;
+searching point 2 y = 2.8;
+searching point 2 z = 1.0;
+searching point 3 x = 1.5;
+searching point 3 y = 2.5;
+searching point 3 z = 1.0;
+num of obstacle zone points = 3;
+obstacle zone point 0 x = 6.5;
+obstacle zone point 0 y = -3.3;
+obstacle zone point 0 z = 1.0;
+obstacle zone point 1 x = 8.55;
+obstacle zone point 1 y = -3.3;
+obstacle zone point 1 z = 1.0;
+obstacle zone point 1 x = 8.55;
+obstacle zone point 1 y = 3.3;
+obstacle zone point 1 z = 1.0;
+
+# 注：在等号后面要打一个空格，输完数字后要打一个分号，这是格式要求！

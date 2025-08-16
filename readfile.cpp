@@ -188,7 +188,7 @@ int main(int argc, char **argv)
                 target_pose.pose.position.x = coordArray[i][0];
                 target_pose.pose.position.y = coordArray[i][1];
                 target_pose.pose.position.z = 1.0;
-                if(i == 0 && !is_done) target_pose.pose.position.z = -1; // 没搜索完时不投最低分靶标
+                // if(i == 0 && !is_done) target_pose.pose.position.z = -1; // 没搜索完时不投最低分靶标
                 target_pub.publish(target_pose);
                 current_index = i;
                 break;
