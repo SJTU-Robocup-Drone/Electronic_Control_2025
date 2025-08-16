@@ -809,7 +809,7 @@ int main(int argc,char *argv[]){
                             return_state_msg.data = true;
                             return_state_pub.publish(return_state_msg);
                             is_return = true;
-                            mission_state = ADJUSTING;
+                            mission_state = DESCENDING;
                         }
                         nav_state_msg.data = false;
                         nav_state_pub.publish(nav_state_msg);
