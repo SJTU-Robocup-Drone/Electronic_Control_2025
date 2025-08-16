@@ -745,8 +745,9 @@ int main(int argc,char *argv[]){
                 }
 
                 if(++target_index >= 3) mission_state = OBSTACLE_AVOIDING;
-                else if(target_pose.pose.position.z == -1) mission_state = SEARCHING;
-                else mission_state = BOMB_NAVIGATING;
+                // else if(target_pose.pose.position.z == -1) mission_state = SEARCHING;
+                // else mission_state = BOMB_NAVIGATING;
+                else mission_state = SEARCHING;
                 break;
             }
 
