@@ -19,6 +19,7 @@ enum MissionState
 {
     TAKEOFF,
     OVERLOOKING,
+    SEARCHING,
     BOMB_NAVIGATING,
     ADJUSTING,
     BOMBING,
