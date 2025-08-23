@@ -58,33 +58,41 @@ extern geometry_msgs::PoseStamped current_nav_pose;
 extern geometry_msgs::Point last_nav_point;
 extern geometry_msgs::Point first_target_point;
 extern geometry_msgs::Point last_target_point;
+
 extern mavros_msgs::State current_state;
 extern mavros_msgs::CommandBool arm_cmd;
 extern mavros_msgs::SetMode offb_set_mode;
+
 extern std_msgs::Bool nav_state_msg;
 extern std_msgs::Bool vision_state_msg;
 extern std_msgs::Bool return_state_msg;
 extern std_msgs::Bool is_done_msg;
+
 extern bool is_stuck;
 extern bool is_once_stuck;
 extern bool is_return;
 extern bool is_vision_right;
 extern bool adjust_has_target;
+
 extern int vision_bias_cnt;
 extern int target_index;
+
 extern std_msgs::Int32 target_index_msg;
+
 extern ros::Time last_request;
 extern ros::Time takeoff_request;
 extern ros::Time nav_request;
+
 extern bool is_takeoff;
-extern double offset[3][2];
 extern bool is_moving_target;
+extern double offset[3][2];
 
 extern const double threshold_distance;
 
 // 搜索/避障点（原名保留）
 extern std::vector<geometry_msgs::Point> searching_points;
 extern int searching_index;
+
 extern std::vector<geometry_msgs::Point> obstacle_zone_points;
 extern int obstacle_zone_index;
 
@@ -94,6 +102,7 @@ struct TimedPose
     geometry_msgs::Point pos;
     ros::Time stamp;
 };
+
 extern std::deque<TimedPose> history_;
 extern const size_t MAX_HISTORY;
 

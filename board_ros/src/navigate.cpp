@@ -8,11 +8,13 @@ ros::Publisher nav_state_pub;
 ros::Publisher vision_state_pub;
 ros::Publisher return_state_pub;
 ros::Publisher is_done_pub;
-ros::Subscriber target_sub;
 ros::Publisher manba_pub;
+
+ros::Subscriber target_sub;
 ros::Subscriber local_pos_sub;
 ros::Subscriber state_sub;
 ros::Subscriber nav_check_sub;
+
 ros::ServiceClient arming_client;
 ros::ServiceClient set_mode_client;
 
@@ -21,10 +23,12 @@ void pose_cb(const nav_msgs::Odometry::ConstPtr &msg)
     current_pose.header = msg->header;
     current_pose.pose = msg->pose.pose;
 }
+
 void state_cb(const mavros_msgs::State::ConstPtr &msg)
 {
     current_state = *msg;
 }
+
 void nav_check_cb(const mavros_msgs::PositionTarget::ConstPtr &msg)
 {
     if (!nav_state_msg.data)

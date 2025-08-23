@@ -34,6 +34,7 @@ void init_params(ros::NodeHandle &nh)
             searching_points.push_back(point);
         }
     }
+    
     std::vector<double> obstacle_x_points, obstacle_y_points, obstacle_z_points;
     if (nh.getParam("obstacle_points/x", obstacle_x_points) &&
         nh.getParam("obstacle_points/y", obstacle_y_points) &&
