@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <cmath>
 
-// 定义视觉缓存（原名原型）
+// 定义视觉缓存
 std::deque<TimedPose> history_;
 const size_t MAX_HISTORY = 5;
 

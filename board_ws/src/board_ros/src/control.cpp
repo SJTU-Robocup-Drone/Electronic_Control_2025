@@ -44,6 +44,66 @@ int main(int argc, char **argv)
     {
         state_machine_spin_once(rate);
         rate.sleep();
+        ros::spinOnce();
+
+        switch (mission_state)
+        {
+        case TAKEOFF:
+        {
+            takeoff();
+            break;
+        }
+        case OVERLOOKING:
+        {
+            overlooking();
+            break;
+        }
+        case SEARCHING:
+        {
+            searching();
+            break;
+        }
+        case BOMB_NAVIGATING:
+        {
+            bomb_navigating();
+            break;
+        }
+        case ADJUSTING:
+        {
+            adjusting();
+            break;
+        }
+        case BOMBING:
+        {
+            bombing();
+            break;
+        }
+        case OBSTACLE_AVOIDING:
+        {
+            obstacle_avoiding();
+            break;
+        }
+        case DESCENDING:
+        {
+            decending();
+            break;
+        }
+        case LANDING:
+        {
+            landing();
+            break;
+        }
+        case FOLLOW:
+        {
+            following();
+            break;
+        }
+        case RETURNING:
+        {
+            returning();
+            break;
+        }
+        }
     }
     return 0;
 }

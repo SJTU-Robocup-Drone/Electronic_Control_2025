@@ -123,3 +123,16 @@ void init_nav_interfaces(ros::NodeHandle &nh);
 void init_params(ros::NodeHandle &nh);
 // 状态机推进一步（main() 调用）
 void state_machine_spin_once(ros::Rate &rate);
+
+//状态机函数
+void takeoff();
+void overlooking();
+void searching();
+void bomb_navigating();
+void adjusting();
+voud bombing();
+void obstacle_avoiding();
+void decending();
+void landing();
+void following();
+void returning();
