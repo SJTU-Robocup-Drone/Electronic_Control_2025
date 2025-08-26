@@ -1,4 +1,4 @@
-#include "offboard/nav.h"
+#include "navigate.h"
 
 // 定义话题服务
 ros::Publisher local_pos_pub;

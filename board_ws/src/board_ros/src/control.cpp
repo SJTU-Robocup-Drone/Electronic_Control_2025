@@ -1,8 +1,8 @@
-#include "offboard/control.h"
-#include "offboard/nav.h"
-#include "offboard/utils.h"
-#include "offboard/state_machine.h"
-#include "offboard/vision.h"
+#include "control.h"
+#include "navigate.h"
+#include "utils.h"
+#include "state_machine.h"
+#include "vision.h"
 
 int main(int argc, char **argv)
 {

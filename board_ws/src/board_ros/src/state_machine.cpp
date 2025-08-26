@@ -1,4 +1,4 @@
-#include "offboard/state_machine.h"
+#include "state_machine.h"
 
 // 定义剩余全局
 MissionState mission_state = TAKEOFF;
