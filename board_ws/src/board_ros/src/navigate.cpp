@@ -8,6 +8,7 @@ ros::Publisher nav_state_pub;
 ros::Publisher vision_state_pub;
 ros::Publisher return_state_pub;
 ros::Publisher is_done_pub;
+ros::Publisher param_set_pub;
 ros::Publisher manba_pub;
 
 ros::Subscriber target_sub;

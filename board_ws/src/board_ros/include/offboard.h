@@ -41,6 +41,7 @@ extern ros::Publisher vision_state_pub;
 extern ros::Publisher return_state_pub;
 extern ros::Publisher is_done_pub;
 extern ros::Subscriber target_sub;
+extern ros::Publisher param_set_pub;
 extern ros::Publisher manba_pub;
 extern ros::Subscriber local_pos_sub;
 extern ros::Subscriber state_sub;
@@ -67,6 +68,7 @@ extern std_msgs::Bool nav_state_msg;
 extern std_msgs::Bool vision_state_msg;
 extern std_msgs::Bool return_state_msg;
 extern std_msgs::Bool is_done_msg;
+extern std_msgs::Bool param_set_msg;
 
 extern bool is_stuck;
 extern bool is_once_stuck;
@@ -83,8 +85,13 @@ extern ros::Time last_request;
 extern ros::Time takeoff_request;
 extern ros::Time nav_request;
 
+extern ros::NodeHandle nh;
+extern ros::Rate rate;
+
 extern bool is_takeoff;
 extern bool is_moving_target;
+extern bool is_param_set;
+
 extern double offset[3][2];
 
 extern const double threshold_distance;
@@ -124,13 +131,13 @@ void init_params(ros::NodeHandle &nh);
 // 状态机推进一步（main() 调用）
 void state_machine_spin_once(ros::Rate &rate);
 
-//状态机函数
+// 状态机函数
 void takeoff();
 void overlooking();
 void searching();
 void bomb_navigating();
 void adjusting();
-voud bombing();
+void bombing();
 void obstacle_avoiding();
 void decending();
 void landing();

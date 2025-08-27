@@ -22,6 +22,7 @@ std_msgs::Bool nav_state_msg;
 std_msgs::Bool vision_state_msg;
 std_msgs::Bool return_state_msg;
 std_msgs::Bool is_done_msg;
+std_msgs::Bool param_set_msg;
 
 bool is_stuck = false;
 bool is_once_stuck = false;
@@ -40,12 +41,16 @@ ros::Time nav_request;
 
 bool is_takeoff = false;
 bool is_moving_target = false;
+bool is_param_set = false;
 
 double offset[3][2] = {{0, 0.18}, {0.18, 0}, {0, -0.18}};
 
 const double threshold_distance = 0.1;
 
-void takeoff();
+ros::NodeHandle nh;
+ros::Rate rate(20);
+
+void takeoff()
 {
     offb_set_mode.request.custom_mode = "OFFBOARD";
     arm_cmd.request.value = true;
@@ -99,11 +104,10 @@ void takeoff();
             break; // 跳出循环，进入导航状态
         }
     }
-
-    break;
 }
 
-void overlooking(){
+void overlooking()
+{
     vision_state_msg.data = true; // 开启视觉扫描
     ROS_INFO("Stablizing first...");
     pose = current_pose;
@@ -165,10 +169,10 @@ void overlooking(){
         mission_state = SEARCHING; // 没有找到靶标，进入搜索状态
         ROS_INFO("No target found, starting searching.");
     }
-    break;
 }
 
-void searching(){
+void searching()
+{
     if (!is_stuck)
     { // 正常导航时，跳过放弃的点向前导航
         while (searching_points[searching_index].z == -1)
@@ -202,7 +206,7 @@ void searching(){
             ROS_WARN("All searching points reached. Navigating now.");
             mission_state = OBSTACLE_AVOIDING;
         }
-        break;
+        return;
     }
 
     // 发布航点并进入导航状态前先悬停，给建图留时间
@@ -273,11 +277,10 @@ void searching(){
 
         rate.sleep();
     }
-
-    break;
 }
 
-void bomb_navigating(){
+void bomb_navigating()
+{
     ROS_INFO("Hovering before navigating...");
     last_request = ros::Time::now();
     pose = current_pose;
@@ -336,11 +339,10 @@ void bomb_navigating(){
 
         rate.sleep();
     }
-
-    break;
 }
 
-void adjusting(){
+void adjusting()
+{
     vision_state_msg.data = true; // 开启视觉扫描
     adjust_has_target = false;
     ROS_INFO("2nd time of visual scanning...");
@@ -368,13 +370,13 @@ void adjusting(){
         is_vision_right = true;
         ROS_WARN("High target bias. Vision scanning of ADJUSTING may be wrong. Bombing depending on OVERLOOKING...");
         pose.pose.position = first_target_point;
-        break;
+        return;
     }
     else if (!adjust_has_target)
     {
         ROS_WARN("Adjusting stage hasn't scanned a target. Vision scanning of OVERLOOKING may be wrong. Directly turning to SEARCHING mode...");
         mission_state = SEARCHING;
-        break;
+        return;
     }
     else
     {
@@ -397,7 +399,8 @@ void adjusting(){
         mission_state = BOMBING; // 调整完成后进入投弹状态
 }
 
-voud bombing(){
+void bombing()
+{
     ROS_INFO("Start bombing...");
     // 先下降到较低高度，并调整姿态后再投弹
     pose.header.frame_id = "map";
@@ -448,10 +451,10 @@ voud bombing(){
     // else mission_state = BOMB_NAVIGATING;
     else
         mission_state = SEARCHING;
-    break;
 }
 
-void obstacle_avoiding(){
+void obstacle_avoiding()
+{
     if (!is_param_set && obstacle_zone_index >= 1)
     {
         is_param_set = true;
@@ -524,11 +527,10 @@ void obstacle_avoiding(){
 
         rate.sleep();
     }
-
-    break;
 }
 
-void decending(){
+void decending()
+{
     pose.header.frame_id = "map";
     pose.header.stamp = ros::Time::now();
     pose.pose.position.x = current_pose.pose.position.x;
@@ -542,10 +544,10 @@ void decending(){
         rate.sleep();
     }
     mission_state = LANDING;
-    break;
 }
 
-void landing(){
+void landing()
+{
     mavros_msgs::SetMode land_set_mode;
     land_set_mode.request.custom_mode = "AUTO.LAND";
 
@@ -568,10 +570,10 @@ void landing(){
         ROS_ERROR("Failed to set LAND mode!");
         // 添加重试逻辑
     }
-    break;
 }
 
-void following(){
+void following()
+{
     int follow_timer = 0;
     vision_state_msg.data = true; // 开启视觉扫描
     ROS_INFO("Follow to target...");
@@ -640,10 +642,10 @@ void following(){
             mission_state = BOMBING; // 确认跟随后进入投弹状态
         }
     }
-    break;
 }
 
-void returning(){
+void returning()
+{
     return_state_msg.data = true;
     return_state_pub.publish(return_state_msg);
     is_return = true;
@@ -706,6 +708,4 @@ void returning(){
         }
         rate.sleep();
     }
-
-    break;
 }

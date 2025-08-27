@@ -7,8 +7,6 @@
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "offb_node");
-    ros::NodeHandle nh;
-    ros::Rate rate(20);
 
     // 视觉初值
     target_pose.pose.position.z = -1;
@@ -42,7 +40,6 @@ int main(int argc, char **argv)
     // 主循环：每步推进一次状态机
     while (ros::ok())
     {
-        state_machine_spin_once(rate);
         rate.sleep();
         ros::spinOnce();
 
