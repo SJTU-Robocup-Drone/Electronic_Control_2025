@@ -8,6 +8,40 @@ int searching_index = 0;
 std::vector<geometry_msgs::Point> obstacle_zone_points;
 int obstacle_zone_index = 0;
 
+void hovering(float z, float time, bool if_exit)
+{
+    last_request = ros::Time::now();
+    pose.header.frame_id = "map";
+    pose.pose.position.x = current_pose.pose.position.x;
+    pose.pose.position.y = current_pose.pose.position.y;
+    pose.pose.position.z = z;
+    last_request = ros::Time::now();
+    ROS_INFO("Hovering at height %f for %f seconds.", z, time);
+    while (ros::ok() && ros::Time::now() - last_request < ros::Duration(time))
+    {
+        ros::spinOnce();
+        pose.header.stamp = ros::Time::now(); // 更新时间戳
+        local_pos_pub.publish(pose);          // 保持悬停
+        rate.sleep();
+        if (if_exit == true)
+        {
+            vision_state_pub.publish(vision_state_msg);
+            if (target_pose.pose.position.z != -1)
+                break;
+        }
+    }
+}
+
+void setpose(float x, float y, float z)
+{
+    pose.header.frame_id = "map";
+    pose.header.stamp = ros::Time::now();
+    pose.pose.position.x = x;
+    pose.pose.position.y = y;
+    pose.pose.position.z = z;
+    local_pos_pub.publish(pose);
+}
+
 double distance(const geometry_msgs::PoseStamped &current_pose_, const geometry_msgs::Point &point)
 {
     const auto &p = current_pose_.pose.position;
@@ -34,7 +68,7 @@ void init_params(ros::NodeHandle &nh)
             searching_points.push_back(point);
         }
     }
-    
+
     std::vector<double> obstacle_x_points, obstacle_y_points, obstacle_z_points;
     if (nh.getParam("obstacle_points/x", obstacle_x_points) &&
         nh.getParam("obstacle_points/y", obstacle_y_points) &&

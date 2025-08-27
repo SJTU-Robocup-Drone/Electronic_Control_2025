@@ -95,12 +95,7 @@ void takeoff()
             ROS_INFO("Takeoff complete. Starting overlooking.");
 
             // 起飞后悬停一秒，给建图和ego_planner启动留时间；同时也给pose一个初始的有效值，防止飞控在ego_planner未启动时因长时间接收不到目标点而进入failsafe模式
-            for (int i = 0; i < 100; i++)
-            {
-                ros::spinOnce();
-                local_pos_pub.publish(pose);
-                ros::Duration(0.01).sleep();
-            }
+            hovering(1.1, 1, false);
             break; // 跳出循环，进入导航状态
         }
     }
@@ -110,14 +105,7 @@ void overlooking()
 {
     vision_state_msg.data = true; // 开启视觉扫描
     ROS_INFO("Stablizing first...");
-    pose = current_pose;
-    last_request = ros::Time::now();
-    while (ros::Time::now() - last_request < ros::Duration(2.0))
-    {
-        ros::spinOnce();
-        local_pos_pub.publish(pose);
-        rate.sleep();
-    }
+    hovering(1.1, 2, false);
 
     ROS_INFO("Start overlooking for target. Rising to overlooking position...");
     pose.pose.position.z = 3.0; // 悬停高度
@@ -134,16 +122,7 @@ void overlooking()
     }
 
     ROS_INFO("Reached overlooking position. Scanning for target...");
-    last_request = ros::Time::now();
-    while (ros::ok() && ros::Time::now() - last_request < ros::Duration(10.0))
-    { // 等待视觉识别靶标
-        ros::spinOnce();
-        if (target_pose.pose.position.z != -1)
-            break;
-        vision_state_pub.publish(vision_state_msg);
-        local_pos_pub.publish(pose); // 保持悬停
-        rate.sleep();
-    }
+    hovering(3, 10, true);
 
     ROS_INFO("Overlooking complete, descending to normal flight height.");
     pose.header.frame_id = "map";
@@ -192,13 +171,7 @@ void searching()
         is_done_msg.data = true;
         is_done_pub.publish(is_done_msg);
         last_request = ros::Time::now();
-        pose = current_pose;
-        while (ros::Time::now() - last_request < ros::Duration(2.0))
-        { // 如果帐篷还没投，就投帐篷
-            ros::spinOnce();
-            local_pos_pub.publish(pose);
-            rate.sleep();
-        }
+        hovering(1.1, 2, false);
         if (target_pose.pose.position.z != -1)
             mission_state = BOMB_NAVIGATING;
         else
@@ -211,15 +184,7 @@ void searching()
 
     // 发布航点并进入导航状态前先悬停，给建图留时间
     ROS_INFO("Hovering before navigating...");
-    last_request = ros::Time::now();
-    pose = current_pose;
-    pose.pose.position.z = 0.9;
-    while (ros::Time::now() - last_request < ros::Duration(5.0))
-    {
-        ros::spinOnce();
-        local_pos_pub.publish(pose);
-        rate.sleep();
-    }
+    hovering(0.9, 5.0, false);
 
     // 发布航点,更新导航时间
     nav_state_msg.data = true;
@@ -282,15 +247,7 @@ void searching()
 void bomb_navigating()
 {
     ROS_INFO("Hovering before navigating...");
-    last_request = ros::Time::now();
-    pose = current_pose;
-    pose.pose.position.z = 0.9;
-    while (ros::Time::now() - last_request < ros::Duration(5.0))
-    {
-        ros::spinOnce();
-        local_pos_pub.publish(pose);
-        rate.sleep();
-    }
+    hovering(0.9, 5, false);
 
     // 发布航点并更新导航时间,初始化第一个和上一个靶标点
     nav_state_msg.data = true;
@@ -346,20 +303,7 @@ void adjusting()
     vision_state_msg.data = true; // 开启视觉扫描
     adjust_has_target = false;
     ROS_INFO("2nd time of visual scanning...");
-    pose.header.frame_id = "map";
-    pose.pose.position.x = current_pose.pose.position.x;
-    pose.pose.position.y = current_pose.pose.position.y;
-    pose.pose.position.z = 1.0;
-    last_request = ros::Time::now();
-    while (ros::ok() && ros::Time::now() - last_request < ros::Duration(5.0))
-    { // 等待视觉识别靶标
-        ros::spinOnce();
-        vision_state_pub.publish(vision_state_msg);
-        pose.header.stamp = ros::Time::now(); // 更新时间戳
-        local_pos_pub.publish(pose);          // 保持悬停
-        rate.sleep();
-    }
-
+    hovering(1, 5, true);
     vision_state_msg.data = false; // 关闭视觉扫描
 
     pose.header.frame_id = "map";
@@ -417,15 +361,9 @@ void bombing()
     }
 
     // 到点后悬停0.5秒并投弹，然后索引自增
-    last_request = ros::Time::now();
     target_index_msg.data = target_index;
     manba_pub.publish(target_index_msg);
-    while (ros::ok() && ros::Time::now() - last_request < ros::Duration(0.5))
-    {
-        ros::spinOnce();
-        local_pos_pub.publish(pose);
-        rate.sleep();
-    }
+    hovering(0.2, 0.5, false);
     target_pose.pose.position.z = -1; // 防止视觉节点没有来得及发布新目标点或发布未找到目标点的消息导致重复导航和投弹
 
     ROS_INFO("Bombing %d done, rising to normal flight height.", target_index + 1);
@@ -470,16 +408,7 @@ void obstacle_avoiding()
     }
 
     ROS_INFO("Hovering before navigating...");
-    last_request = ros::Time::now();
-    pose = current_pose;
-    pose.pose.position.z = 0.7;
-    while (ros::Time::now() - last_request < ros::Duration(5.0))
-    {
-        ros::spinOnce();
-        local_pos_pub.publish(pose);
-        rate.sleep();
-    }
-
+    hovering(0.7, 5, false);
     // 发布航点
     if (obstacle_zone_index < obstacle_zone_points.size())
     {
@@ -493,15 +422,7 @@ void obstacle_avoiding()
     }
 
     ROS_INFO("EGO thinking...");
-    last_request = ros::Time::now();
-    pose = current_pose;
-    pose.pose.position.z = 0.7;
-    while (ros::Time::now() - last_request < ros::Duration(3.0))
-    {
-        ros::spinOnce();
-        local_pos_pub.publish(pose);
-        rate.sleep();
-    }
+    hovering(0.7, 3, false);
 
     // 轨迹跟踪与检查
     while (ros::ok())
@@ -581,7 +502,7 @@ void following()
     pose.header.stamp = ros::Time::now();
     pose.pose.position.x = current_pose.pose.position.x;
     pose.pose.position.y = current_pose.pose.position.y;
-    pose.pose.position.z = 3.5; // 悬停高度
+    pose.pose.position.z = 3; // 悬停高度
 
     while (ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance)
     {
@@ -592,21 +513,10 @@ void following()
     }
 
     ROS_INFO("Reached overlooking position. Scanning for target...");
-    last_request = ros::Time::now();
-    while (ros::ok() && ros::Time::now() - last_request < ros::Duration(5.0))
-    { // 等待视觉识别靶标
-        ros::spinOnce();
-        if (target_pose.pose.position.z != -1)
-            break;
-        vision_state_pub.publish(vision_state_msg);
-        local_pos_pub.publish(pose); // 保持悬停
-        rate.sleep();
-    }
+    hovering(3, 5, true);
 
     while (follow_timer <= 20)
     {
-        vision_state_pub.publish(vision_state_msg);
-
         if (target_pose.pose.position.z != -1)
         { // 找到了靶标，进入靶标跟随状态
             ROS_INFO_THROTTLE(2.0, "Target found, keeping following to target.");
@@ -626,7 +536,6 @@ void following()
         pose.header.stamp = ros::Time::now();
         pose.pose.position.z = 2;
 
-        //                    pose.pose.position.z = target_pose.pose.position.z;
         if (distance(current_pose, pose.pose.position) < threshold_distance / 2.0 && ros::ok()) // 记录成功跟上的次数
             follow_timer++;
         else

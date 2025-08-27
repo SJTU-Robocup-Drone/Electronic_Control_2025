@@ -113,7 +113,7 @@ struct TimedPose
 extern std::deque<TimedPose> history_;
 extern const size_t MAX_HISTORY;
 
-// —— 原有函数声明（保留原名/签名）——
+// —— 原有函数声明 ——
 double distance(const geometry_msgs::PoseStamped &current_pose, const geometry_msgs::Point &point);
 void pose_cb(const nav_msgs::Odometry::ConstPtr &msg);
 void state_cb(const mavros_msgs::State::ConstPtr &msg);
@@ -128,8 +128,11 @@ void nav_check_cb(const mavros_msgs::PositionTarget::ConstPtr &msg);
 void init_nav_interfaces(ros::NodeHandle &nh);
 // 参数提取（写入 searching_points / obstacle_zone_points）
 void init_params(ros::NodeHandle &nh);
-// 状态机推进一步（main() 调用）
-void state_machine_spin_once(ros::Rate &rate);
+
+// 悬停
+void hovering(float z, float time, bool if_exit);
+// 平移到目标点
+void setpose(float x, float y, float z);
 
 // 状态机函数
 void takeoff();

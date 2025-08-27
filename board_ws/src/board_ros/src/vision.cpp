@@ -22,7 +22,7 @@ void target_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
     if (target_pose.pose.position.z == 2.0)
         is_moving_target = true;
 
-    if (mission_state == ADJUSTING)
+    if (mission_state == ADJUSTING) // 如果调整阶段靶标位置连续两次偏差超过0.5米，则认为视觉误识别（假定OVERLOOKING的识别结果没有问题，因为之前没有出过错）
     {
         if (distance(target_pose, last_target_point) > 0.5)
         {
@@ -39,7 +39,7 @@ void target_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
     }
 }
 
-void visionCallback(const geometry_msgs::PoseStamped &msg)
+void visionCallback(const geometry_msgs::PoseStamped &msg)  //储存五个视觉目标点缓存
 {
     TimedPose tp;
     tp.pos = msg.pose.position;
