@@ -142,7 +142,7 @@ void bomb_navigating();
 void adjusting();
 void bombing();
 void obstacle_avoiding();
-void decending();
+void descending();
 void landing();
 void following();
 void returning();

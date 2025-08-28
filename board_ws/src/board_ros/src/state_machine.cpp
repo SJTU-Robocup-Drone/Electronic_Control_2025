@@ -450,7 +450,7 @@ void obstacle_avoiding()
     }
 }
 
-void decending()
+void descending()
 {
     pose.header.frame_id = "map";
     pose.header.stamp = ros::Time::now();
