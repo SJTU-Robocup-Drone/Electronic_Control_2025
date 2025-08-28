@@ -82,7 +82,7 @@ int main(int argc, char **argv)
         }
         case DESCENDING:
         {
-            decending();
+            descending();
             break;
         }
         case LANDING:
