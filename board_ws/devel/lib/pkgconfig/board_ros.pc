@@ -1,0 +1,8 @@
+prefix=/home/li/Drone/board_ws/devel
+
+Name: board_ros
+Description: Description of board_ros
+Version: 0.0.0
+Cflags: -I/home/li/Drone/board_ws/src/board_ros/include
+Libs: -L${prefix}/lib 
+Requires: roscpp rospy

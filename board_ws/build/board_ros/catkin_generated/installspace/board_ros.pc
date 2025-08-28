@@ -1,0 +1,8 @@
+prefix=/home/li/Drone/board_ws/install
+
+Name: board_ros
+Description: Description of board_ros
+Version: 0.0.0
+Cflags: -I${prefix}/include
+Libs: -L${prefix}/lib 
+Requires: roscpp rospy

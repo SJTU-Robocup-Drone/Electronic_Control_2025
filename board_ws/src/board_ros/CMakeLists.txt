@@ -157,7 +157,7 @@ include_directories(
 
 ##add_executable(offb_node src/offboard.cpp)
 add_executable(mid360 src/mid360.cpp)
-add_executable(readfile src/readfile.cpp)
+add_executable(readfile src/vision_message.cpp)
 add_executable(set_param src/set_param.cpp)
 add_executable(waypoint_tracking src/waypoint_tracking.cpp)
 ##add_executable(control src/offboard.cpp)
