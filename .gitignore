@@ -6,3 +6,7 @@
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
+/board_ws/build
+/board_ws/devel
+.vscode/settings.json
+.idea

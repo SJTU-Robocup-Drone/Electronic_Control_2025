@@ -155,7 +155,6 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 
-##add_executable(offb_node src/offboard.cpp)
 add_executable(mid360 src/mid360.cpp)
 add_executable(readfile src/vision_message.cpp)
 add_executable(set_param src/set_param.cpp)
@@ -163,11 +162,11 @@ add_executable(waypoint_tracking src/waypoint_tracking.cpp)
 ##add_executable(control src/offboard.cpp)
 
 add_executable(offb_node
-  src/control.cpp
+  src/offboard.cpp
   src/vision.cpp
   src/navigate.cpp
   src/state_machine.cpp
-  src/utils.cpp
+  src/function.cpp
 )
 
 ## Rename C++ executable without prefix
