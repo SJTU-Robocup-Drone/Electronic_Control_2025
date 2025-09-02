@@ -1,4 +1,7 @@
+#include "navigate.h"
+#include "function.h"
 #include "state_machine.h"
+#include "vision.h"
 
 // 定义剩余全局
 MissionState mission_state = TAKEOFF;
@@ -104,7 +107,7 @@ void takeoff()
 void overlooking()
 {
     vision_state_msg.data = true; // 开启视觉扫描
-    ROS_INFO("Stablizing first...");
+    ROS_INFO("Stabilizing first...");
     hovering(1.1, 2, false);
 
     ROS_INFO("Start overlooking for target. Rising to overlooking position...");

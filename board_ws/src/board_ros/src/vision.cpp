@@ -1,4 +1,5 @@
 #include "vision.h"
+#include "function.h"
 #include <algorithm>
 #include <cmath>
 

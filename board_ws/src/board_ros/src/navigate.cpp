@@ -1,4 +1,6 @@
 #include "navigate.h"
+#include "function.h"
+#include "vision.h"
 
 // 定义话题服务
 ros::Publisher local_pos_pub;

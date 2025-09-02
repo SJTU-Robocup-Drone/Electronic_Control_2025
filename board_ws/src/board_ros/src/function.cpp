@@ -32,7 +32,7 @@ void hovering(float z, float time, bool if_exit)
     }
 }
 
-void setpose(float x, float y, float z)
+void setPose(float x, float y, float z)
 {
     pose.header.frame_id = "map";
     pose.header.stamp = ros::Time::now();

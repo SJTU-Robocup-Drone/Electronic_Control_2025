@@ -2,7 +2,6 @@
 #include "navigate.h"
 #include "function.h"
 #include "state_machine.h"
-#include "vision.h"
 
 int main(int argc, char **argv)
 {

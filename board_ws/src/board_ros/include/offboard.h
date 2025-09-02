@@ -30,7 +30,7 @@ enum MissionState
     RETURNING
 };
 
-// —— 全局对象（全部保留原名，用 extern 声明）——
+// —— 全局对象（用 extern 声明）——
 extern MissionState mission_state;
 
 extern ros::Publisher local_pos_pub;
@@ -112,37 +112,3 @@ struct TimedPose
 
 extern std::deque<TimedPose> history_;
 extern const size_t MAX_HISTORY;
-
-// —— 原有函数声明 ——
-double distance(const geometry_msgs::PoseStamped &current_pose, const geometry_msgs::Point &point);
-void pose_cb(const nav_msgs::Odometry::ConstPtr &msg);
-void state_cb(const mavros_msgs::State::ConstPtr &msg);
-void target_cb(const geometry_msgs::PoseStamped::ConstPtr &msg);
-void visionCallback(const geometry_msgs::PoseStamped &msg);
-geometry_msgs::Vector3 computeAverageVelocity();
-geometry_msgs::Point predictNextPosition(double predict_dt);
-void nav_check_cb(const mavros_msgs::PositionTarget::ConstPtr &msg);
-
-// —— 新增：但仅用于模块化初始化/调度 ——
-// 导航话题/服务初始化（变量名不变）
-void init_nav_interfaces(ros::NodeHandle &nh);
-// 参数提取（写入 searching_points / obstacle_zone_points）
-void init_params(ros::NodeHandle &nh);
-
-// 悬停
-void hovering(float z, float time, bool if_exit);
-// 平移到目标点
-void setpose(float x, float y, float z);
-
-// 状态机函数
-void takeoff();
-void overlooking();
-void searching();
-void bomb_navigating();
-void adjusting();
-void bombing();
-void obstacle_avoiding();
-void descending();
-void landing();
-void following();
-void returning();
