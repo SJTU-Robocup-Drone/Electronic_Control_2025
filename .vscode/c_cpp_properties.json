@@ -1,35 +1,17 @@
 {
-    "version": 4,
     "configurations": [
         {
-            "name": "WSL-ROS-Noetic",
+            "name": "Linux",
             "includePath": [
-                "/opt/ros/noetic/include",
-                "/opt/ros/noetic/include/ros",
-                "/opt/ros/noetic/include/std_msgs",
-                "/opt/ros/noetic/include/geometry_msgs",
-                "/opt/ros/noetic/include/nav_msgs",
-                "/opt/ros/noetic/include/mavros_msgs",
-                "/opt/ros/noetic/include/mavros",
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "/opt/ros/noetic/include/**"
             ],
-            "defines": [
-                "_DEBUG",
-                "UNICODE",
-                "_UNICODE",
-                "offb"  // 如果这是需要的定义，可以加上
-            ],
-            "compilerPath": "/usr/bin/g++",  // WSL 中的 C++ 编译器路径
-            "intelliSenseMode": "gcc-x64",
-            "cppStandard": "c++14",
-            "cStandard": "c11",
-            "browse": {
-                "path": [
-                    "/opt/ros/noetic/include",
-                    "${workspaceFolder}/**"
-                ],
-                "limitSymbolsToIncludedHeaders": true
-            }
+            "defines": [],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "${default}"
         }
-    ]
+    ],
+    "version": 4
 }

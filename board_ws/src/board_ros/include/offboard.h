@@ -85,9 +85,6 @@ extern ros::Time last_request;
 extern ros::Time takeoff_request;
 extern ros::Time nav_request;
 
-extern ros::NodeHandle nh;
-extern ros::Rate rate;
-
 extern bool is_takeoff;
 extern bool is_moving_target;
 extern bool is_param_set;

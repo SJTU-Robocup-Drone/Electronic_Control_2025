@@ -5,8 +5,10 @@
 
 int main(int argc, char **argv)
 {
+    // ROS 节点初始化
     ros::init(argc, argv, "offb_node");
-
+    ros::NodeHandle nh;
+    ros::Rate rate(20);
     // 视觉初值
     target_pose.pose.position.z = -1;
 
@@ -46,57 +48,57 @@ int main(int argc, char **argv)
         {
         case TAKEOFF:
         {
-            takeoff();
+            takeoff(rate);
             break;
         }
         case OVERLOOKING:
         {
-            overlooking();
+            overlooking(rate);
             break;
         }
         case SEARCHING:
         {
-            searching();
+            searching(rate);
             break;
         }
         case BOMB_NAVIGATING:
         {
-            bomb_navigating();
+            bomb_navigating(rate);
             break;
         }
         case ADJUSTING:
         {
-            adjusting();
+            adjusting(rate);
             break;
         }
         case BOMBING:
         {
-            bombing();
+            bombing(rate);
             break;
         }
         case OBSTACLE_AVOIDING:
         {
-            obstacle_avoiding();
+            obstacle_avoiding(nh,rate);
             break;
         }
         case DESCENDING:
         {
-            descending();
+            descending(rate);
             break;
         }
         case LANDING:
         {
-            landing();
+            landing(rate);
             break;
         }
         case FOLLOW:
         {
-            following();
+            following(rate);
             break;
         }
         case RETURNING:
         {
-            returning();
+            returning(rate);
             break;
         }
         }
