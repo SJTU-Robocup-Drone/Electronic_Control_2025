@@ -4,7 +4,7 @@
 #include <fstream>
 #include <vector>
 #include <geometry_msgs/Point.h>
-std::string filename = "/home/amov/board_ws/src/board_ros/src/param.txt";
+std::string filename = "/home/li/Drone/board_ws/src/board_ros/points/param.txt";
 std::string line;
 std::string valid_str;
 int pos1 = 0;

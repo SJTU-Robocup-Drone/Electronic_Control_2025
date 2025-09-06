@@ -59,6 +59,15 @@ void takeoff(ros::Rate &rate)
     while (ros::ok() && mission_state == TAKEOFF)
     {
         ros::spinOnce();
+        if (current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(5.0)))
+        {
+            if (set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent)
+            {
+                ROS_INFO("Offboard enabled");
+            }
+            last_request = ros::Time::now();
+        }
+
         if (!current_state.armed && (ros::Time::now() - last_request > ros::Duration(5.0)) && current_state.mode == "OFFBOARD")
         {
             if (arming_client.call(arm_cmd) && arm_cmd.response.success)
@@ -71,7 +80,7 @@ void takeoff(ros::Rate &rate)
         pose.header.stamp = ros::Time::now();
         pose.pose.position.x = 0;
         pose.pose.position.y = 0;
-        pose.pose.position.z = 1.1; // 更容易达到起飞条件
+        pose.pose.position.z = 1.3; // 更容易达到起飞条件
         local_pos_pub.publish(pose);
         rate.sleep();
 
@@ -192,11 +201,6 @@ void searching(ros::Rate &rate)
     nav_pose.header.frame_id = "map";
     nav_pose.header.stamp = ros::Time::now();
     nav_pose.pose.position = searching_points[searching_index];
-    // if(pointOccupied(nav_pose.pose.position)){
-    //     ROS_WARN("Current Searching point in obstacle! Searching directly for next point.");
-    //     searching_index++;
-    //     break;
-    // }
     nav_goal_pub.publish(nav_pose);
     nav_request = ros::Time::now();
 
@@ -205,14 +209,6 @@ void searching(ros::Rate &rate)
     while (ros::ok())
     {
         ros::spinOnce();
-        // if(pointOccupied(nav_pose.pose.position)){
-        //     ROS_WARN("Current Searching point in obstacle! Searching directly for next point.");
-        //     searching_index++;
-        //     break;
-        // }
-        // local_pos_pub.publish(pose);
-        // ROS_INFO_THROTTLE(1.0, "Heading to(%.2f, %.2f, %.2f)", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
-
         if (is_stuck)
         { // 如果ego-planner卡住了，放弃当前搜索点，同时暂时关闭导航
             ROS_WARN("Ego-planner is stuck. Trying navigating to last searching point and aborting current searching point...");

@@ -159,7 +159,7 @@ add_executable(mid360 src/mid360.cpp)
 add_executable(readfile src/vision_message.cpp)
 add_executable(set_param src/set_param.cpp)
 add_executable(waypoint_tracking src/waypoint_tracking.cpp)
-##add_executable(control src/offboard.cpp)
+add_executable(control src/control.cpp)
 
 add_executable(offb_node
   src/offboard.cpp
@@ -202,10 +202,10 @@ target_link_libraries(set_param
 target_link_libraries(waypoint_tracking
   ${catkin_LIBRARIES}
 )
-##target_link_libraries(control
-##  ${catkin_LIBRARIES}
-##  Eigen3::Eigen
-##)
+target_link_libraries(control
+ ${catkin_LIBRARIES}
+ Eigen3::Eigen
+)
 #############
 ## Install ##
 #############

@@ -10,3 +10,4 @@
 /board_ws/devel
 .vscode/settings.json
 .idea
+start.sh
