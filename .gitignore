@@ -11,3 +11,5 @@
 .vscode/settings.json
 .idea
 start.sh
+/egoplanner_ws/build
+/egoplanner_ws/devel
