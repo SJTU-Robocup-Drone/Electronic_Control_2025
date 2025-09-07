@@ -91,7 +91,7 @@ int main(int argc, char **argv)
             landing(rate);
             break;
         }
-        case FOLLOW:
+        case FOLLOWING:
         {
             following(rate);
             break;

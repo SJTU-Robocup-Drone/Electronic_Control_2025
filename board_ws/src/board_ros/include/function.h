@@ -36,8 +36,8 @@ struct FollowParams
 };
 
 //计算“正上方跟随”的速度控制指令：速度XY + 位置Z（高度保持）
-void computeOverheadVelocityCmd(const geometry_msgs::Point &tgt_vel, // 目标速度（请从你的视觉/KF得到）
-                                double now_sec,
-                                double target_stamp_sec,              // 目标状态时间戳（Odometry.header.stamp）
+void computeOverheadVelocityCmd(const geometry_msgs::Vector3 &tgt_vel, // 目标速度（请从你的视觉/KF得到）
+                                ros::Time now_sec,
+                                ros::Time target_stamp_sec,              // 目标状态时间戳（Odometry.header.stamp）
                                 geometry_msgs::Twist &output_vel,     // 输出：速度命令（XY速度 + Z速度）
                                 geometry_msgs::Point &output_ref_xy); // 输出：参考点，仅用于调试/可视化

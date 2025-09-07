@@ -120,14 +120,14 @@ static void unit_dir(double x, double y, double &ux, double &uy)
     uy = y / n;
 }
 
-void computeOverheadVelocityCmd(const geometry_msgs::Point &tgt_vel, // 目标速度（来自视觉/KF）
-                                double now_sec,
-                                double target_stamp_sec,             // 目标状态时间戳
+void computeOverheadVelocityCmd(const geometry_msgs::Vector3 &tgt_vel, // 目标速度（来自视觉/KF）
+                                ros::Time now_sec,
+                                ros::Time target_stamp_sec,          // 目标状态时间戳
                                 geometry_msgs::Twist &output_vel,    // 输出：XY 速度 + Z 速度
                                 geometry_msgs::Point &output_ref_xy) // 输出：参考点（调试/可视化）
 {
     FollowParams p; // 可在外层设参；这里用默认值即可（高度=1.5）
-    const bool fresh = (now_sec - target_stamp_sec) < p.lost_timeout;
+    const bool fresh = (now_sec- target_stamp_sec) < ros::Duration(p.lost_timeout);
 
     // === 1) 直线几何建模：沿线/垂线分解（在线学习） ============================
     // 在不新增全局的前提下，用 static 保留少量状态（仅在本进程内有效）
