@@ -18,14 +18,21 @@ double distance(const geometry_msgs::PoseStamped &current_pose, const geometry_m
 
 struct FollowParams
 {
-    double height = 8.0;       // 跟随高度 h (m)
-    double tau = 0.25;         // 超前补偿 τ (s)
-    double kp_xy = 1.2;        // XY 比例
-    double kd_xy = 0.0;        // XY 微分（若可读到 UAV 速度再用）
-    double kp_z = 1.0;         // Z 比例
-    double vmax_xy = 5.0;      // 水平限速
-    double vmax_z = 1.0;       // 垂直限速
-    double lost_timeout = 0.6; // 目标丢失阈值 (s)
+    double height = 1.5; // 固定高度（你要的 1.5 m）
+    double tau = 0.25;   // 常规超前补偿
+    double kp_xy = 1.2;
+    double kd_xy = 0.0;
+    double vmax_xy = 5.0;
+    double vmax_z = 0.0; // 固定高度时不用
+    double lost_timeout = 0.6;
+
+    // —— 直线往返增强参数 ——
+    double k_perp = 1.0;     // 垂直偏差的纠正增益（把 UAV 拉回到直线上）
+    double tau_turn = 0.10;  // 掉头段的更小超前量
+    double d_turn = 1.0;     // 认为“接近端点”的 along-track 距离阈值（m）
+    double ema_alpha = 0.2;  // 速度/方向的指数滑动平均系数（抖动越大取值越大）
+    double v_slow_cap = 2.0; // 掉头段限速（m/s），避免过冲
+    double v_thresh = 0.3;   // 判定“速度很慢≈掉头中”的阈值
 };
 
 //计算“正上方跟随”的速度控制指令：速度XY + 位置Z（高度保持）
