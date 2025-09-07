@@ -4,15 +4,19 @@
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Point.h>
 // 工具模块实现：distance / init_params（参数提取）
-// 定义点集
-// 悬停 / 设置目标点
+
+// 声明点集
+extern std::vector<geometry_msgs::Point> searching_points;
+extern std::vector<geometry_msgs::Point> obstacle_zone_points;
 
 // 参数提取（写入 searching_points / obstacle_zone_points）
 void init_params(ros::NodeHandle &nh);
 // 悬停
 void hovering(float z, float time, bool if_exit, ros::Rate &rate);
 // 平移到目标点
-void set_pose(float x, float y, float z);
+void set_and_pub_pose(float x, float y, float z);
+// 发布导航状态和导航点
+void set_and_pub_nav(float x, float y, float z);
 // 计算两点距离
 double distance(const geometry_msgs::PoseStamped &current_pose, const geometry_msgs::Point &point);
 

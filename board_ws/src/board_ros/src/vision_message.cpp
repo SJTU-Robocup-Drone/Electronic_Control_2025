@@ -18,7 +18,7 @@ int read_pos = 0; // 当前已经读取过的行数
 geometry_msgs::PoseStamped target_pose;
 ros::Time last_request;
 
-std::string filename = "/home/amov/board_ws/src/board_ros/scripts/detection_log.txt";                           // 视觉组传来的文件路径
+std::string filename = "/home/michmax/drone/board_ws/src/board_ros/scripts/detection_log.txt";                           // 视觉组传来的文件路径
 std::string line;                                                                                               // 字符行
 std::string field;                                                                                              // 字段
 std::vector<std::string> fields;                                                                                // 用于储存所有6个字段

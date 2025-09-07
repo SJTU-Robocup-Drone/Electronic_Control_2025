@@ -35,6 +35,8 @@ bool adjust_has_target = false;
 
 int vision_bias_cnt = 0;
 int target_index = 0;
+int searching_index = 0;
+int obstacle_zone_index = 0;
 
 std_msgs::Int32 target_index_msg;
 
@@ -59,6 +61,7 @@ void takeoff(ros::Rate &rate)
     while (ros::ok() && mission_state == TAKEOFF)
     {
         ros::spinOnce();
+        // 自动切换到offboard模式（仅限虚拟机）
         if (current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(5.0)))
         {
             if (set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent)
@@ -68,6 +71,7 @@ void takeoff(ros::Rate &rate)
             last_request = ros::Time::now();
         }
 
+        // 切进offboard模式后就解锁
         if (!current_state.armed && (ros::Time::now() - last_request > ros::Duration(5.0)) && current_state.mode == "OFFBOARD")
         {
             if (arming_client.call(arm_cmd) && arm_cmd.response.success)
@@ -76,13 +80,8 @@ void takeoff(ros::Rate &rate)
             }
             last_request = ros::Time::now();
         }
-        pose.header.frame_id = "map";
-        pose.header.stamp = ros::Time::now();
-        pose.pose.position.x = 0;
-        pose.pose.position.y = 0;
-        pose.pose.position.z = 1.3; // 更容易达到起飞条件
-        local_pos_pub.publish(pose);
-        rate.sleep();
+
+        set_and_pub_pose(0,0,1.3); // 更容易达到起飞条件
 
         if (!is_takeoff)
             takeoff_request = ros::Time::now();
@@ -104,7 +103,7 @@ void takeoff(ros::Rate &rate)
             ROS_INFO("Takeoff complete. Starting overlooking.");
 
             // 起飞后悬停一秒，给建图和ego_planner启动留时间；同时也给pose一个初始的有效值，防止飞控在ego_planner未启动时因长时间接收不到目标点而进入failsafe模式
-            hovering(1.1, 1, false, rate);
+            hovering(1.0, 1, false, rate);
             break; // 跳出循环，进入导航状态
         }
     }
@@ -114,7 +113,7 @@ void overlooking(ros::Rate &rate)
 {
     vision_state_msg.data = true; // 开启视觉扫描
     ROS_INFO("Stabilizing first...");
-    hovering(1.1, 2, false, rate);
+    hovering(1.0, 2, false, rate);
 
     ROS_INFO("Start overlooking for target. Rising to overlooking position...");
     pose.pose.position.z = 3.0; // 悬停高度
@@ -134,10 +133,8 @@ void overlooking(ros::Rate &rate)
     hovering(3, 10, true, rate);
 
     ROS_INFO("Overlooking complete, descending to normal flight height.");
-    pose.header.frame_id = "map";
-    pose.header.stamp = ros::Time::now();
-    pose.pose.position.z = 1.0; // 降低高度到1米(原飞行高度)
-    local_pos_pub.publish(pose);
+    // 降低高度到1米(原飞行高度)
+    set_and_pub_pose(current_pose.pose.position.x, current_pose.pose.position.y, 1.0);
     vision_state_msg.data = false; // 关闭视觉扫描
     while (ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance)
     {
@@ -180,7 +177,7 @@ void searching(ros::Rate &rate)
         is_done_msg.data = true;
         is_done_pub.publish(is_done_msg);
         last_request = ros::Time::now();
-        hovering(1.1, 2, false, rate);
+        hovering(0.9, 2, false, rate);
         if (target_pose.pose.position.z != -1)
             mission_state = BOMB_NAVIGATING;
         else
@@ -196,13 +193,7 @@ void searching(ros::Rate &rate)
     hovering(0.9, 5.0, false, rate);
 
     // 发布航点,更新导航时间
-    nav_state_msg.data = true;
-    nav_state_pub.publish(nav_state_msg);
-    nav_pose.header.frame_id = "map";
-    nav_pose.header.stamp = ros::Time::now();
-    nav_pose.pose.position = searching_points[searching_index];
-    nav_goal_pub.publish(nav_pose);
-    nav_request = ros::Time::now();
+    set_and_pub_nav(searching_points[searching_index].x, searching_points[searching_index].y, searching_points[searching_index].z);
 
     // 轨迹跟踪与检查
     ROS_INFO("Searching for target %d...", searching_index + 1);
@@ -246,13 +237,7 @@ void bomb_navigating(ros::Rate &rate)
     hovering(0.9, 5, false, rate);
 
     // 发布航点并更新导航时间,初始化第一个和上一个靶标点
-    nav_state_msg.data = true;
-    nav_state_pub.publish(nav_state_msg);
-    nav_pose.header.frame_id = "map";
-    nav_pose.header.stamp = ros::Time::now();
-    nav_pose.pose.position = target_pose.pose.position;
-    nav_goal_pub.publish(nav_pose);
-    nav_request = ros::Time::now();
+    set_and_pub_nav(target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
     first_target_point = nav_pose.pose.position;
     last_target_point = nav_pose.pose.position;
     ROS_INFO("Navigating to target at (%.2f, %.2f, %.2f)", target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
@@ -309,8 +294,7 @@ void adjusting(ros::Rate &rate)
     {
         is_vision_right = true;
         ROS_WARN("High target bias. Vision scanning of ADJUSTING may be wrong. Bombing depending on OVERLOOKING...");
-        pose.pose.position = first_target_point;
-        return;
+        set_and_pub_pose(first_target_point.x, first_target_point.y, first_target_point.z);
     }
     else if (!adjust_has_target)
     {
@@ -320,9 +304,7 @@ void adjusting(ros::Rate &rate)
     }
     else
     {
-        pose.pose.position.x = target_pose.pose.position.x;
-        pose.pose.position.y = target_pose.pose.position.y;
-        pose.pose.position.z = target_pose.pose.position.z;
+        set_and_pub_pose(target_pose.pose.position.x, target_pose.pose.position.y, current_pose.pose.position.z);
     }
     ROS_INFO("Adjusting position to target...");
     while (distance(current_pose, pose.pose.position) > threshold_distance && ros::ok())
@@ -363,10 +345,6 @@ void bombing(ros::Rate &rate)
     target_pose.pose.position.z = -1; // 防止视觉节点没有来得及发布新目标点或发布未找到目标点的消息导致重复导航和投弹
 
     ROS_INFO("Bombing %d done, rising to normal flight height.", target_index + 1);
-    pose.header.frame_id = "map";
-    pose.header.stamp = ros::Time::now();
-    pose.pose.position.x = current_pose.pose.position.x;
-    pose.pose.position.y = current_pose.pose.position.y;
     pose.pose.position.z = 1.0;
     // 速度控制较低速上升，防止吹跑已经投放好的弹
     vel.linear.x = 0.0;
@@ -405,16 +383,10 @@ void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
 
     ROS_INFO("Hovering before navigating...");
     hovering(0.7, 5, false, rate);
-    // 发布航点
+    // 发布航点，更新导航时间
     if (obstacle_zone_index < obstacle_zone_points.size())
     {
-        nav_state_msg.data = true;
-        nav_state_pub.publish(nav_state_msg);
-        nav_pose.header.frame_id = "map";
-        nav_pose.header.stamp = ros::Time::now();
-        nav_pose.pose.position = obstacle_zone_points[obstacle_zone_index];
-        nav_goal_pub.publish(nav_pose);
-        nav_request = ros::Time::now();
+        set_and_pub_nav(obstacle_zone_points[obstacle_zone_index].x, obstacle_zone_points[obstacle_zone_index].y, obstacle_zone_points[obstacle_zone_index].z);
     }
 
     ROS_INFO("EGO thinking...");
@@ -448,11 +420,7 @@ void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
 
 void descending(ros::Rate &rate)
 {
-    pose.header.frame_id = "map";
-    pose.header.stamp = ros::Time::now();
-    pose.pose.position.x = current_pose.pose.position.x;
-    pose.pose.position.y = current_pose.pose.position.y;
-    pose.pose.position.z = 0.3;
+    set_and_pub_pose(current_pose.pose.position.x, current_pose.pose.position.y, 0.3);
     while (distance(current_pose, pose.pose.position) > threshold_distance && ros::ok())
     {
         ros::spinOnce();
@@ -494,11 +462,7 @@ void following(ros::Rate &rate)
     int follow_timer = 0;
     vision_state_msg.data = true; // 开启视觉扫描
     ROS_INFO("Follow to target...");
-    pose.header.frame_id = "map";
-    pose.header.stamp = ros::Time::now();
-    pose.pose.position.x = current_pose.pose.position.x;
-    pose.pose.position.y = current_pose.pose.position.y;
-    pose.pose.position.z = 3; // 悬停高度
+    set_and_pub_pose(current_pose.pose.position.x, current_pose.pose.position.y, 3.0);
 
     while (ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance)
     {
@@ -557,15 +521,7 @@ void returning(ros::Rate &rate)
     is_stuck = false;
 
     // 发布航点并更新导航时间
-    nav_state_msg.data = true;
-    nav_state_pub.publish(nav_state_msg);
-    nav_pose.header.frame_id = "map";
-    nav_pose.header.stamp = ros::Time::now();
-    nav_pose.pose.position.x = 0.0;
-    nav_pose.pose.position.y = 0.0;
-    nav_pose.pose.position.z = 1.0;
-    nav_goal_pub.publish(nav_pose);
-    nav_request = ros::Time::now();
+    set_and_pub_nav(0.0, 0.0, 1.0);
 
     // 轨迹跟踪与检查
     while (ros::ok())
@@ -579,16 +535,15 @@ void returning(ros::Rate &rate)
             nav_state_msg.data = false;
             nav_state_pub.publish(nav_state_msg);
 
-            pose = current_pose;
-            pose.pose.position.z = 3.2;
+            set_and_pub_pose(current_pose.pose.position.x, current_pose.pose.position.y, 3.2);
             while (current_pose.pose.position.z <= 3.0)
             {
                 ros::spinOnce();
                 local_pos_pub.publish(pose);
                 rate.sleep();
             }
-            pose.pose.position.x = 0.0;
-            pose.pose.position.y = 0.0;
+
+            set_and_pub_pose(0.0, 0.0, 3.0);
             while (distance(current_pose, pose.pose.position) > threshold_distance)
             {
                 ros::spinOnce();

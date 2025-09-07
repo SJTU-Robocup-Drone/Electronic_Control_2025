@@ -38,6 +38,8 @@ void target_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
         last_target_point = target_pose.pose.position;
         adjust_has_target = true;
     }
+    ros::Duration delay = ros::Time::now() - msg->header.stamp;
+    ROS_INFO_THROTTLE(2.0, "Target propagation delay: %.2f s", delay.toSec());
 }
 
 void visionCallback(const geometry_msgs::PoseStamped &msg)  //储存五个视觉目标点缓存
