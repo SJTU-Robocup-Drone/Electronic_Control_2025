@@ -14,7 +14,7 @@ void target_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
     {
         ROS_INFO_THROTTLE(2.0, "Target found at (%.2f, %.2f, %.2f)",
                           target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
-        if ((mission_state == ADJUSTING && !is_return) || mission_state == FOLLOW)
+        if ((mission_state == ADJUSTING && !is_return) || mission_state == FOLLOWING)
         {
             target_pose.pose.position.x += offset[target_index][0];
             target_pose.pose.position.y += offset[target_index][1];

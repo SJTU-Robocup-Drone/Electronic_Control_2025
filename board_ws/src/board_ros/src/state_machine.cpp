@@ -266,7 +266,7 @@ void bomb_navigating(ros::Rate &rate)
             nav_state_pub.publish(nav_state_msg);
             if (is_moving_target)
             {
-                mission_state = FOLLOW;
+                mission_state = FOLLOWING;
                 ROS_INFO("The target is moving, following it.");
                 is_moving_target = false; // 重置标志
             }
@@ -491,10 +491,16 @@ void following(ros::Rate &rate)
         if (target_pose.pose.position.z != -1) // 接受有效点后放入缓存
             visionCallback(target_pose);
 
-        pose.pose.position = predictNextPosition(0.05); // 计算预测坐标
+        geometry_msgs::PoseStamped ref_pose;
+        computeOverheadVelocityCmd(computeAverageVelocity(), ros::Time::now(), target_pose.header.stamp, vel, ref_pose.pose.position);
 
-        pose.header.stamp = ros::Time::now();
-        pose.pose.position.z = 2;
+        while (ros::ok() && current_pose.pose.position.z <= 3.0)
+        {
+            ros::spinOnce();
+            local_vel_pub.publish(vel);
+            vision_state_pub.publish(vision_state_msg);
+            rate.sleep();
+        }
 
         if (distance(current_pose, pose.pose.position) < threshold_distance / 2.0 && ros::ok()) // 记录成功跟上的次数
             follow_timer++;
