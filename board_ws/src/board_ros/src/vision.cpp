@@ -32,6 +32,12 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg);
 void process_target_cb();
 void receive_target();
 
+ros::Subscriber pose_sub;
+ros::Subscriber man_check_sub;
+ros::Subscriber return_state_sub;
+ros::Subscriber is_done_sub;
+ros::Subscriber detection_sub;
+
 // 目标类型映射
 std::map<std::string, int> target_types = {
     {"tent", 0},
@@ -67,13 +73,14 @@ void is_done_cb(const std_msgs::Bool::ConstPtr &msg) {
 
 void init_vis_interfaces(ros::NodeHandle &nh)
 {
+    ROS_INFO("Initializing vision interfaces...");
     target_pose.pose.position.z = -1;
     
-    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, pose_cb);
-    ros::Subscriber man_check_sub = nh.subscribe<std_msgs::Int32>("/manba_input", 10, man_check_cb);
-    ros::Subscriber return_state_sub = nh.subscribe<std_msgs::Bool>("/return_state", 10, return_state_cb);
-    ros::Subscriber is_done_sub = nh.subscribe<std_msgs::Bool>("/done_state", 10, is_done_cb);
-    ros::Subscriber detection_sub = nh.subscribe<geometry_msgs::PointStamped>("/detection_results", 10, detection_cb);
+    pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, pose_cb);
+    man_check_sub = nh.subscribe<std_msgs::Int32>("/manba_input", 10, man_check_cb);
+    return_state_sub = nh.subscribe<std_msgs::Bool>("/return_state", 10, return_state_cb);
+    is_done_sub = nh.subscribe<std_msgs::Bool>("/done_state", 10, is_done_cb);
+    detection_sub = nh.subscribe<geometry_msgs::PointStamped>("/detection_results", 10, detection_cb);
 
     process_target_timer = nh.createTimer(ros::Duration(0.02), [](const ros::TimerEvent&) {process_target_cb();});
 }
@@ -184,40 +191,40 @@ void receive_target()
     }
 }
 
-// void target_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
-// {
-//     target_pose = *msg;
-//     if (target_index < 3 && target_pose.pose.position.z != -1)
-//     {
-//         ROS_INFO_THROTTLE(2.0, "Target found at (%.2f, %.2f, %.2f)",
-//                           target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
-//         if ((mission_state == ADJUSTING && !is_return) || mission_state == FOLLOWING)
-//         {
-//             target_pose.pose.position.x += offset[target_index][0];
-//             target_pose.pose.position.y += offset[target_index][1];
-//         }
-//     }
-//     if (target_pose.pose.position.z == 2.0)
-//         is_moving_target = true;
+void target_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
+{
+    target_pose = *msg;
+    if (target_index < 3 && target_pose.pose.position.z != -1)
+    {
+        ROS_INFO_THROTTLE(2.0, "Target found at (%.2f, %.2f, %.2f)",
+                          target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
+        if ((mission_state == ADJUSTING && !is_return) || mission_state == FOLLOWING)
+        {
+            target_pose.pose.position.x += offset[target_index][0];
+            target_pose.pose.position.y += offset[target_index][1];
+        }
+    }
+    if (target_pose.pose.position.z == 2.0)
+        is_moving_target = true;
 
-//     if (mission_state == ADJUSTING) // 如果调整阶段靶标位置连续两次偏差超过0.5米，则认为视觉误识别（假定OVERLOOKING的识别结果没有问题，因为之前没有出过错）
-//     {
-//         if (distance(target_pose, last_target_point) > 0.5)
-//         {
-//             if (++vision_bias_cnt >= 2)
-//             {
-//                 vision_bias_cnt = 0;
-//                 is_vision_right = false;
-//             }
-//         }
-//         else
-//             vision_bias_cnt = 0;
-//         last_target_point = target_pose.pose.position;
-//         adjust_has_target = true;
-//     }
-//     ros::Duration delay = ros::Time::now() - msg->header.stamp;
-//     ROS_INFO_THROTTLE(2.0, "Target propagation delay: %.2f s", delay.toSec());
-// }
+    if (mission_state == ADJUSTING) // 如果调整阶段靶标位置连续两次偏差超过0.5米，则认为视觉误识别（假定OVERLOOKING的识别结果没有问题，因为之前没有出过错）
+    {
+        if (distance(target_pose, last_target_point) > 0.5)
+        {
+            if (++vision_bias_cnt >= 2)
+            {
+                vision_bias_cnt = 0;
+                is_vision_right = false;
+            }
+        }
+        else
+            vision_bias_cnt = 0;
+        last_target_point = target_pose.pose.position;
+        adjust_has_target = true;
+    }
+    ros::Duration delay = ros::Time::now() - msg->header.stamp;
+    ROS_INFO_THROTTLE(2.0, "Target propagation delay: %.2f s", delay.toSec());
+}
 
 void visionCallback(const geometry_msgs::PoseStamped &msg)  //储存五个视觉目标点缓存
 {

@@ -68,6 +68,7 @@ void init_nav_interfaces(ros::NodeHandle &nh)
     local_pos_sub = nh.subscribe<nav_msgs::Odometry>("/odom_high_freq", 10, pose_cb);
     state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, state_cb);
     nav_check_sub = nh.subscribe<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 50, nav_check_cb);
+    target_sub = nh.subscribe<geometry_msgs::PoseStamped>("/target", 10, target_cb);
 
     arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
     set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
