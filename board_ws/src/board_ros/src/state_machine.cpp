@@ -483,8 +483,8 @@ void following(ros::Rate &rate)
         }
         else
         {
-            mission_state = SEARCHING; // 没有找到靶标，进入搜索状态
-            ROS_INFO("No target found, starting searching.");
+            hovering(2, 5, true, rate);
+            ROS_INFO("No target found, starting hovering.");
             break;
         }
 
@@ -494,21 +494,14 @@ void following(ros::Rate &rate)
         geometry_msgs::PoseStamped ref_pose;
         computeOverheadVelocityCmd(computeAverageVelocity(), ros::Time::now(), target_pose.header.stamp, vel, ref_pose.pose.position);
 
-        while (ros::ok() && current_pose.pose.position.z <= 3.0)
-        {
-            ros::spinOnce();
             local_vel_pub.publish(vel);
-            vision_state_pub.publish(vision_state_msg);
-            rate.sleep();
-        }
-
+            
         if (distance(current_pose, pose.pose.position) < threshold_distance / 2.0 && ros::ok()) // 记录成功跟上的次数
             follow_timer++;
         else
             follow_timer = 0;
 
         ros::spinOnce();
-        local_pos_pub.publish(pose);
         rate.sleep();
 
         if (follow_timer >= 20)
