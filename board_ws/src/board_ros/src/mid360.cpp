@@ -79,9 +79,9 @@ int main(int argc, char **argv)
     ros::NodeHandle nh("~");
 
     ros::Subscriber slam_sub = nh.subscribe<nav_msgs::Odometry>("/Odometry", 100, vins_callback);
-    ros::Subscriber px4_odom_sub = nh.subscribe<nav_msgs::Odometry>("/uav1/mavros/local_position/odom", 5, px4_odom_callback);
+    ros::Subscriber px4_odom_sub = nh.subscribe<nav_msgs::Odometry>("/mavros/local_position/odom", 5, px4_odom_callback);
  
-    ros::Publisher vision_pub = nh.advertise<geometry_msgs::PoseStamped>("/uav1/mavros/vision_pose/pose", 10);
+    ros::Publisher vision_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/vision_pose/pose", 10);
  
  
     // the setpoint publishing rate MUST be faster than 2Hz

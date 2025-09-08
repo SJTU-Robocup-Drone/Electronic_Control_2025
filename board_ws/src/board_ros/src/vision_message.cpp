@@ -12,9 +12,7 @@
 bool is_bombing = false;
 bool is_returning = false;
 bool is_done = false;
-bool is_found = false;
 geometry_msgs::PoseStamped current_pose;
-int current_index = 0;
 double yaw = 0;
 double coordX = 0;
 double coordY = 0;
@@ -84,6 +82,7 @@ int main(int argc, char **argv) {
     target_pose.pose.position.z = -1;
 
     ros::Publisher target_pub = nh.advertise<geometry_msgs::PoseStamped>("/target", 10);
+    ros::Publisher vision_control_pub = nh.advertise<std_msgs::Bool>("/vision_state", 10);
     
     ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, pose_cb);
     ros::Subscriber man_check_sub = nh.subscribe<std_msgs::Int32>("/manba_input", 10, man_check_cb);
@@ -92,10 +91,13 @@ int main(int argc, char **argv) {
     ros::Subscriber detection_sub = nh.subscribe<geometry_msgs::PointStamped>("/detection_results", 10, detection_cb);
 
     ros::Rate rate(20.0);
-
+    
+    int current_index = 0;
 
     while (ros::ok()) {
         ros::spinOnce();
+
+        bool is_found = false;
         
         if (is_returning) {
             // 返航阶段：寻找降落区
@@ -137,7 +139,6 @@ int main(int argc, char **argv) {
             target_pose.header.stamp = ros::Time::now();
             target_pose.pose.position.z = -1;
             target_pub.publish(target_pose);
-            is_found = false;
         }
 
         if (is_bombing) {
@@ -150,6 +151,7 @@ int main(int argc, char **argv) {
 
         rate.sleep();
     }
+
 
     return 0;
 }
