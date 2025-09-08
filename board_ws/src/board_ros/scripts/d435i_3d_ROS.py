@@ -12,6 +12,9 @@ from nav_msgs.msg import Odometry
 from utils.augmentations import letterbox
 from utils.general import non_max_suppression
 
+# 视觉处理频率 帧/秒
+vision_rate=30  
+
 # 视觉状态控制
 scanning_active = False
 detection_thread = None
@@ -83,9 +86,12 @@ def detect_targets():
     color_intrinsics = profile.get_stream(rs.stream.color).as_video_stream_profile().get_intrinsics()
     align = rs.align(rs.stream.color)
 
+    frame_count = 0
     try:
         while scanning_active and not stop_event.is_set() and not rospy.is_shutdown():
             start_time = time.time()
+            frame_count += 1
+            
 
             frames = pipeline.wait_for_frames()
             aligned_frames = align.process(frames)
@@ -121,7 +127,7 @@ def detect_targets():
                     x, y, z = check_queue(items, class_id, float(conf), x, y, z)
 
                     # 发布检测结果
-                    if conf > 0.5 and detection_pub:
+                    if conf > 0.5 and detection_pub and frame_count % (vision_rate/30) == 0:
                         detection_msg = PointStamped()
                         detection_msg.header.stamp = rospy.Time.now()
                         detection_msg.header.frame_id = names[class_id]  # 使用类别名作为frame_id
