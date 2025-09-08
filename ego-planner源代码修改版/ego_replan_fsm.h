@@ -108,6 +108,7 @@ namespace ego_planner
     void getLocalTarget();
 
     bool findEscapeTarget(Eigen::Vector3d& escape_target);// new added for emergency escape
+    bool adjustTarget(Eigen::Vector3d& target);// new added for adjusting goal(terminal point)
     /* ROS functions */
     void execFSMCallback(const ros::TimerEvent &e);
     void checkCollisionCallback(const ros::TimerEvent &e);
