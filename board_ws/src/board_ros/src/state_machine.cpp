@@ -62,14 +62,14 @@ void takeoff(ros::Rate &rate)
     {
         ros::spinOnce();
         // 自动切换到offboard模式（仅限虚拟机）
-        if (current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(5.0)))
-        {
-            if (set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent)
-            {
-                ROS_INFO("Offboard enabled");
-            }
-            last_request = ros::Time::now();
-        }
+        // if (current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(5.0)))
+        // {
+        //     if (set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent)
+        //     {
+        //         ROS_INFO("Offboard enabled");
+        //     }
+        //     last_request = ros::Time::now();
+        // }
 
         // 切进offboard模式后就解锁
         if (!current_state.armed && (ros::Time::now() - last_request > ros::Duration(5.0)) && current_state.mode == "OFFBOARD")
@@ -106,6 +106,7 @@ void takeoff(ros::Rate &rate)
             hovering(1.0, 1, false, rate);
             break; // 跳出循环，进入导航状态
         }
+        rate.sleep();
     }
 }
 
