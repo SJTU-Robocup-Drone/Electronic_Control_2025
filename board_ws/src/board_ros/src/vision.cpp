@@ -68,8 +68,6 @@ void is_done_cb(const std_msgs::Bool::ConstPtr &msg) {
 void init_vis_interfaces(ros::NodeHandle &nh)
 {
     target_pose.pose.position.z = -1;
-
-    ros::Publisher vision_control_pub = nh.advertise<std_msgs::Bool>("/vision_state", 10);
     
     ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, pose_cb);
     ros::Subscriber man_check_sub = nh.subscribe<std_msgs::Int32>("/manba_input", 10, man_check_cb);
@@ -156,13 +154,16 @@ void receive_target()
 {
     if (target_index < 3 && target_pose.pose.position.z != -1)
     {
-        ROS_INFO_THROTTLE(2.0, "Target found at (%.2f, %.2f, %.2f)", target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
+        ros::Duration delay = ros::Time::now() - target_pose.header.stamp;
+        ROS_INFO_THROTTLE(2.0, "Target found at (%.2f, %.2f, %.2f), propagation delay: %.2f s", 
+            target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z, delay.toSec());
         if ((mission_state == ADJUSTING && !is_return) || mission_state == FOLLOWING)
         {
             target_pose.pose.position.x += offset[target_index][0];
             target_pose.pose.position.y += offset[target_index][1];
         }
     }
+
     if (target_pose.pose.position.z == 2.0)
         is_moving_target = true;
 
@@ -181,8 +182,6 @@ void receive_target()
         last_target_point = target_pose.pose.position;
         adjust_has_target = true;
     }
-    ros::Duration delay = ros::Time::now() - target_pose.header.stamp;
-    ROS_INFO_THROTTLE(2.0, "Target propagation delay: %.2f s", delay.toSec());
 }
 
 // void target_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
