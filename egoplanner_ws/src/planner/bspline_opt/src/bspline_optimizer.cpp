@@ -879,7 +879,7 @@ namespace ego_planner
     ;
     bool flag_force_return, flag_occ, success;
     new_lambda2_ = lambda2_;
-    constexpr int MAX_RESART_NUMS_SET = 6; // 新修改：最大重启次数从3次提高到6次
+    constexpr int MAX_RESTART_NUMS_SET = 6; // 新修改：最大重启次数从3次提高到6次
     do
     {
       /* ---------- prepare ---------- */
@@ -933,7 +933,7 @@ namespace ego_planner
                    << cps_.points.col(4).transpose() << endl;
               ROS_WARN("First 3 control points in obstacles! return false, t=%f", t);
               // 新修改：只有在达到最大重启次数后，才会因为前3个点在障碍物内而返回失败
-              if(restart_nums == MAX_RESART_NUMS_SET - 1){
+              if(restart_nums == MAX_RESTART_NUMS_SET){
                 ROS_ERROR("Force to stop optimization due to the first 3 control points in obstacles.");
                 return false;
               }
@@ -969,7 +969,7 @@ namespace ego_planner
         // while (ros::ok());
       }
 
-    } while ((flag_occ && restart_nums < MAX_RESART_NUMS_SET) ||
+    } while ((flag_occ && restart_nums < MAX_RESTART_NUMS_SET) ||
              (flag_force_return && force_stop_type_ == STOP_FOR_REBOUND && rebound_times <= 20));
 
     return success;
