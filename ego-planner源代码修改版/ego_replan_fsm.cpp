@@ -174,14 +174,28 @@ namespace ego_planner
     init_pt_ = odom_pos_;
     end_pt_ << msg->poses[0].pose.position.x, msg->poses[0].pose.position.y, msg->poses[0].pose.position.z;
 
+    // check whether the target is in obstacle area.
+    // if it's trapped in obstacles, it should be moved to a safe area.
+    auto grid_map = planner_manager_->grid_map_;
+    int target_in_inflated_zone_ = grid_map->getInflateOccupancy(end_pt_);
+    ROS_INFO("getInflateOccupancy of target = %d",target_in_inflated_zone_);
+    if (target_in_inflated_zone_) {
+      ROS_WARN("Target in inflated zone! Try to adjust the target point.");
+      // finding a new target
+      if (adjustTarget(end_pt_)) {
+        ROS_INFO("Find a safe goal. ");
+      } else {
+        ROS_ERROR("Failed to find safe goal! Attempting original goal.");
+      }
+    }
+
     // 保存原始目标点
     original_target_ = end_pt_;
     has_original_target_ = true;
 
     // 检测是否在障碍物膨胀区内
-    auto grid_map = planner_manager_->grid_map_;
     is_in_inflated_zone_ = grid_map->getInflateOccupancy(odom_pos_);
-    ROS_INFO("getInflateOccupancy = %d",is_in_inflated_zone_);
+    ROS_INFO("getInflateOccupancy of drone = %d",is_in_inflated_zone_);
     if (is_in_inflated_zone_) {
       ROS_WARN("Drone in inflated zone! Starting escape procedure.");
     
@@ -263,6 +277,56 @@ namespace ego_planner
     return false; // 未找到安全点
 
   }// new-added code
+
+  bool EGOReplanFSM::adjustTarget(Eigen::Vector3d& target){
+    /* old version
+    auto grid_map = planner_manager_->grid_map_;
+    const int search_radius = 10; // 最大搜索半径（栅格单位）
+    // get target's 栅格坐标
+    Eigen::Vector3i target_idx;
+    grid_map->posToIndex(target,target_idx);
+
+    // 螺旋搜索安全点
+    for (int r = 1; r <= search_radius; ++r) {
+      for (int x = -r; x <= r; ++x) {
+        for (int y = -r; y <= r; ++y) {
+          if (abs(x) != r && abs(y) != r) continue; // 只检查边界
+        
+          Eigen::Vector3i candidate_idx = target_idx + Eigen::Vector3i(x, y, 0);
+          Eigen::Vector3d candidate_pos;
+          grid_map->indexToPos(candidate_idx,candidate_pos);
+        
+          // 检查是否安全且不在膨胀区内
+          if (!grid_map->getInflateOccupancy(candidate_pos)) {
+            Eigen::Vector3i escape_idx = target_idx + Eigen::Vector3i(x,y,0);
+            grid_map->indexToPos(escape_idx, target);
+            target(2) = 1.0;
+            ROS_INFO_THROTTLE(1.0, "Find safe target(terminal point) at (%.2f, %.2f, %.2f)", target(0), target(1), target(2));
+            return true;
+          }
+        }
+      }
+    }*/
+    auto grid_map = planner_manager_->grid_map_;
+    Eigen::Vector3d direction = (odom_pos_ - target);
+    direction(2) = 0; // restrict vector "direction" in 2 dimensions
+    direction.normalize();
+    cout << direction << endl;
+
+    constexpr double step = 0.1;
+    for(int i = 1; i <= 10; ++i){
+      Eigen::Vector3d candidate_pos = target + direction * i * step;
+      int candidate_in_inflated_zone = grid_map->getInflateOccupancy(candidate_pos);
+      ROS_INFO("getInflateOccupancy of candidate %d (%.2f, %.2f, %.2f) = %d", i, candidate_pos(0), candidate_pos(1), candidate_pos(2), candidate_in_inflated_zone);
+      if(!candidate_in_inflated_zone){
+        target = candidate_pos;
+        target(2) = 1.0;
+        ROS_INFO_THROTTLE(1.0, "Find safe target(terminal point) at (%.2f, %.2f, %.2f)", target(0), target(1), target(2));
+        return true;
+      }
+    }
+    return false; // 未找到安全点
+  }// new added
 
   void EGOReplanFSM::odometryCallback(const nav_msgs::OdometryConstPtr &msg)
   {
@@ -493,9 +557,11 @@ namespace ego_planner
       }*/
       double dist = (odom_pos_ - escape_target_).norm();
       constexpr double threshold = 0.1;
-      if (is_in_inflated_zone_ != 1 && dist < threshold){
-        ROS_INFO("Successfully escaped inflated zone. Switching to INIT and Planning to original target.");
-        changeFSMExecState(INIT, "FSM");
+      if (is_in_inflated_zone_ != 1 ){
+        if(dist < threshold){
+          ROS_INFO("Successfully escaped inflated zone. Switching to INIT and Planning to original target.");
+          changeFSMExecState(INIT, "FSM");
+        }
       }
       else{
         escape_state_msg_.data = true;
