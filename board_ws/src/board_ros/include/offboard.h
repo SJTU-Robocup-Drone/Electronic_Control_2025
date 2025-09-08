@@ -26,7 +26,7 @@ enum MissionState
     OBSTACLE_AVOIDING,
     DESCENDING,
     LANDING,
-    FOLLOW,
+    FOLLOWING,
     RETURNING
 };
 

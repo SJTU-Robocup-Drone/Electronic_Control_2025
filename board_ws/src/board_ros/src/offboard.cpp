@@ -2,6 +2,7 @@
 #include "navigate.h"
 #include "function.h"
 #include "state_machine.h"
+#include "vision.h"
 
 int main(int argc, char **argv)
 {
@@ -14,6 +15,7 @@ int main(int argc, char **argv)
 
     // 初始化话题/服务
     init_nav_interfaces(nh);
+    init_vis_interfaces(nh);
     // 读取参数到 searching_points/obstacle_zone_points
     init_params(nh);
 
@@ -91,7 +93,7 @@ int main(int argc, char **argv)
             landing(rate);
             break;
         }
-        case FOLLOW:
+        case FOLLOWING:
         {
             following(rate);
             break;
