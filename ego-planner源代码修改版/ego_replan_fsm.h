@@ -8,6 +8,7 @@
 #include <sensor_msgs/Imu.h>
 #include <ros/ros.h>
 #include <std_msgs/Empty.h>
+#include <std_msgs/Bool.h>
 #include <vector>
 #include <visualization_msgs/Marker.h>
 
@@ -15,6 +16,7 @@
 #include <plan_env/grid_map.h>
 #include <ego_planner/Bspline.h>
 #include <ego_planner/DataDisp.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <plan_manage/planner_manager.h>
 #include <traj_utils/planning_visualization.h>
 
@@ -35,7 +37,8 @@ namespace ego_planner
       GEN_NEW_TRAJ,
       REPLAN_TRAJ,
       EXEC_TRAJ,
-      EMERGENCY_STOP
+      EMERGENCY_STOP,
+      ESCAPING // for emergency escape
     };
     enum TARGET_TYPE
     {
@@ -72,6 +75,19 @@ namespace ego_planner
 
     bool flag_escape_emergency_;
 
+    /* escaping data */
+    int is_in_inflated_zone_; // -1表示未知，0表示无障碍物，1表示有障碍物
+    bool has_original_target_;
+    std_msgs::Bool escape_state_msg_;
+    Eigen::Vector3d original_target_;
+    Eigen::Vector3d escape_target_;
+    geometry_msgs::Pose escape_pose;
+    geometry_msgs::PoseStamped original_target_pose_;
+    ros::Publisher escape_pose_pub_;
+    ros::Publisher escape_state_pub_;
+    ros::Publisher self_trig_pub_;
+
+
     /* ROS utils */
     ros::NodeHandle node_;
     ros::Timer exec_timer_, safety_timer_;
@@ -91,6 +107,7 @@ namespace ego_planner
     void planGlobalTrajbyGivenWps();
     void getLocalTarget();
 
+    bool findEscapeTarget(Eigen::Vector3d& escape_target);// new added for emergency escape
     /* ROS functions */
     void execFSMCallback(const ros::TimerEvent &e);
     void checkCollisionCallback(const ros::TimerEvent &e);
