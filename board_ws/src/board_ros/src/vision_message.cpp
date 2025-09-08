@@ -92,12 +92,6 @@ int main(int argc, char **argv) {
 
     ros::Rate rate(20.0);
     
-    // 启动视觉检测
-    std_msgs::Bool vision_start;
-    vision_start.data = true;
-    vision_control_pub.publish(vision_start);
-    ROS_INFO("启动视觉检测...");
-
     int current_index = 0;
 
     while (ros::ok()) {
@@ -158,11 +152,6 @@ int main(int argc, char **argv) {
         rate.sleep();
     }
 
-    // 停止视觉检测
-    std_msgs::Bool vision_stop;
-    vision_stop.data = false;
-    vision_control_pub.publish(vision_stop);
-    ROS_INFO("停止视觉检测...");
 
     return 0;
 }
