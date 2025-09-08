@@ -7,16 +7,16 @@ namespace ego_planner
 
   void BsplineOptimizer::setParam(ros::NodeHandle &nh)
   {
-    nh.param("optimization/lambda_smooth", lambda1_, -1.0);
-    nh.param("optimization/lambda_collision", lambda2_, -1.0);
-    nh.param("optimization/lambda_feasibility", lambda3_, -1.0);
-    nh.param("optimization/lambda_fitness", lambda4_, -1.0);
+    nh.getParam("optimization/lambda_smooth", lambda1_);
+    nh.getParam("optimization/lambda_collision", lambda2_);
+    nh.getParam("optimization/lambda_feasibility", lambda3_);
+    nh.getParam("optimization/lambda_fitness", lambda4_);
 
-    nh.param("optimization/dist0", dist0_, -1.0);
-    nh.param("optimization/max_vel", max_vel_, -1.0);
-    nh.param("optimization/max_acc", max_acc_, -1.0);
+    nh.getParam("optimization/dist0", dist0_);
+    nh.getParam("optimization/max_vel", max_vel_);
+    nh.getParam("optimization/max_acc", max_acc_);
 
-    nh.param("optimization/order", order_, 3);
+    nh.getParam("optimization/order", order_);
   }
 
   void BsplineOptimizer::setEnvironment(const GridMap::Ptr &env)
