@@ -75,7 +75,7 @@
     <param name="grid_map/map_size_z"   value="$(arg map_size_z_)" /> 
     <param name="grid_map/local_update_range_x"  value="5.5" /> 
     <param name="grid_map/local_update_range_y"  value="5.5" /> 
-    <param name="grid_map/local_update_range_z"  value="3" /> 
+    <param name="grid_map/local_update_range_z"  value="2" /> 
     <param name="grid_map/obstacles_inflation"     value="0.2" /> 
     <param name="grid_map/local_map_margin" value="30"/>
     <param name="grid_map/ground_height"        value="0.50"/>
@@ -101,7 +101,7 @@
     <param name="grid_map/min_ray_length" value="0.1"/>
     <param name="grid_map/max_ray_length" value="4.5"/>
 
-    <param name="grid_map/virtual_ceil_height"   value="1.05"/>
+    <param name="grid_map/virtual_ceil_height"   value="1.2"/>
     <param name="grid_map/visualization_truncate_height"   value="2.4"/>
     <param name="grid_map/show_occ_time"  value="false"/>
     <param name="grid_map/pose_type"     value="2"/>  
@@ -116,11 +116,11 @@
     <param name="manager/planning_horizon" value="$(arg planning_horizon)" type="double"/>
 
   <!-- trajectory optimization -->
-    <param name="optimization/lambda_smooth" value="150" type="double"/>
-    <param name="optimization/lambda_collision" value="750" type="double"/>
-    <param name="optimization/lambda_feasibility" value="80" type="double"/>
-    <param name="optimization/lambda_fitness" value="120" type="double"/>
-    <param name="optimization/dist0" value="0.28" type="double"/>
+    <param name="optimization/lambda_smooth" value="1" type="double"/>
+    <param name="optimization/lambda_collision" value="0.5" type="double"/>
+    <param name="optimization/lambda_feasibility" value="1" type="double"/>
+    <param name="optimization/lambda_fitness" value="1" type="double"/>
+    <param name="optimization/dist0" value="0.8" type="double"/>
     <param name="optimization/max_vel" value="$(arg max_vel)" type="double"/>
     <param name="optimization/max_acc" value="$(arg max_acc)" type="double"/>
 

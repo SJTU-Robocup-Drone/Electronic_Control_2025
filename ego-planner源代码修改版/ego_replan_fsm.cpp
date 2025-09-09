@@ -558,10 +558,10 @@ namespace ego_planner
       double dist = (odom_pos_ - escape_target_).norm();
       constexpr double threshold = 0.1;
       if (is_in_inflated_zone_ != 1 ){
-        if(dist < threshold){
+        // if(dist < threshold){
           ROS_INFO("Successfully escaped inflated zone. Switching to INIT and Planning to original target.");
           changeFSMExecState(INIT, "FSM");
-        }
+        // }
       }
       else{
         escape_state_msg_.data = true;
@@ -575,7 +575,7 @@ namespace ego_planner
         escape_pose_pub_.publish(escape_pose);
         ROS_INFO_THROTTLE(1.0, "Escaping to (%.2f, %.2f, %.2f)", escape_pose.position.x, escape_pose.position.y, escape_pose.position.z);
 
-        findEscapeTarget(escape_target_);
+        // findEscapeTarget(escape_target_);
       }
       break;
     }
