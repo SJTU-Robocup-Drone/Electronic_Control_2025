@@ -24,24 +24,40 @@ struct FollowParams
 {
     double height = 1.5; // 固定高度（你要的 1.5 m）
     double tau = 0.25;   // 常规超前补偿
-    double kp_xy = 1.2;
+    double kp_xy = 0;
     double kd_xy = 0.0;
     double vmax_xy = 5.0;
     double vmax_z = 0.0; // 固定高度时不用
     double lost_timeout = 0.6;
 
     // —— 直线往返增强参数 ——
-    double k_perp = 1.0;     // 垂直偏差的纠正增益（把 UAV 拉回到直线上）
-    double tau_turn = 0.10;  // 掉头段的更小超前量
-    double d_turn = 1.0;     // 认为“接近端点”的 along-track 距离阈值（m）
-    double ema_alpha = 0.2;  // 速度/方向的指数滑动平均系数（抖动越大取值越大）
-    double v_slow_cap = 2.0; // 掉头段限速（m/s），避免过冲
-    double v_thresh = 0.3;   // 判定“速度很慢≈掉头中”的阈值
+    double k_perp = 0.0;     // 垂直偏差的纠正增益（把 UAV 拉回到直线上）
+    double tau_turn = 0.0;   // 掉头段的更小超前量
+    double d_turn = 0.0;     // 认为“接近端点”的 along-track 距离阈值（m）
+    double ema_alpha = 0.0;  // 速度/方向的指数滑动平均系数（抖动越大取值越大）
+    double v_slow_cap = 0.0; // 掉头段限速（m/s），避免过冲
+    double v_thresh = 0.0;   // 判定“速度很慢≈掉头中”的阈值
 };
 
-//计算“正上方跟随”的速度控制指令：速度XY + 位置Z（高度保持）
+// double height = 1.5; // 固定高度（你要的 1.5 m）
+// double tau = 0.25;   // 常规超前补偿
+// double kp_xy = 1.2;
+// double kd_xy = 0.0;
+// double vmax_xy = 5.0;
+// double vmax_z = 0.0; // 固定高度时不用
+// double lost_timeout = 0.6;
+
+// // —— 直线往返增强参数 ——
+// double k_perp = 1.0;     // 垂直偏差的纠正增益（把 UAV 拉回到直线上）
+// double tau_turn = 0.10;  // 掉头段的更小超前量
+// double d_turn = 1.0;     // 认为“接近端点”的 along-track 距离阈值（m）
+// double ema_alpha = 0.2;  // 速度/方向的指数滑动平均系数（抖动越大取值越大）
+// double v_slow_cap = 2.0; // 掉头段限速（m/s），避免过冲
+// double v_thresh = 0.3;   // 判定“速度很慢≈掉头中”的阈值
+
+// 计算“正上方跟随”的速度控制指令：速度XY + 位置Z（高度保持）
 void computeOverheadVelocityCmd(const geometry_msgs::Vector3 &tgt_vel, // 目标速度（请从你的视觉/KF得到）
                                 ros::Time now_sec,
-                                ros::Time target_stamp_sec,              // 目标状态时间戳（Odometry.header.stamp）
+                                ros::Time target_stamp_sec,           // 目标状态时间戳（Odometry.header.stamp）
                                 geometry_msgs::Twist &output_vel,     // 输出：速度命令（XY速度 + Z速度）
                                 geometry_msgs::Point &output_ref_xy); // 输出：参考点，仅用于调试/可视化
