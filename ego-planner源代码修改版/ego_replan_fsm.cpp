@@ -19,7 +19,7 @@ namespace ego_planner
     original_target_ = Eigen::Vector3d::Zero();
     escape_pose_pub_ = nh.advertise<geometry_msgs::Pose>("/pose_cmd", 50);
     escape_state_pub_ = nh.advertise<std_msgs::Bool>("/escape_state", 10);
-    self_trig_pub_ = nh.advertise<geometry_msgs::PoseStamped>("/move_base_simple/goal", 10);
+    self_trig_pub_ = nh.advertise<geometry_msgs::PoseStamped>("/control/move_base_simple/goal", 10);
 
     /*  fsm param  */
     nh.param("fsm/flight_type", target_type_, -1);
