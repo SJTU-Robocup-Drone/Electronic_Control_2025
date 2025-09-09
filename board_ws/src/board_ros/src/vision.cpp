@@ -71,6 +71,7 @@ void is_done_cb(const std_msgs::Bool::ConstPtr &msg) {
     is_done = msg->data;
 }
 
+// 初始化融合方案的视觉相关接口
 void init_vis_interfaces(ros::NodeHandle &nh)
 {
     ROS_INFO("Initializing vision interfaces...");
@@ -84,7 +85,7 @@ void init_vis_interfaces(ros::NodeHandle &nh)
 
     process_target_timer = nh.createTimer(ros::Duration(0.02), [](const ros::TimerEvent&) {process_target_cb();});
 }
-
+// 接收视觉节点发的相对目标坐标并转化为全局坐标
 void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg) {
     target_pose.header.stamp = msg -> header.stamp; // 记录消息时间戳
     std::string target_name = msg -> header.frame_id;
@@ -105,18 +106,19 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg) {
             coordArray[type][0] = global_x;
             coordArray[type][1] = global_y;
             
-            ROS_INFO_THROTTLE(2.0, "更新目标 %s 相对坐标: (%.2f, %.2f)", target_name.c_str(), global_x, global_y);
+            ROS_INFO_THROTTLE(2.0, "Refreshing target %s, relative coord: (%.2f, %.2f)", target_name.c_str(), global_x, global_y);
         }
     }
 }
 
+// 定时遍历目标数组并根据其中的数据更新target_pose
 void process_target_cb()
 {
     if (is_returning) {
         // 返航阶段：寻找降落区
         if (coordArray[5][0] != -100 && coordArray[5][0] != -50) {
             is_found = true;
-            ROS_INFO("降落区找到, 位置: (%.2f, %.2f)", coordArray[5][0], coordArray[5][1]);
+            ROS_INFO("Landing area found at: (%.2f, %.2f)", coordArray[5][0], coordArray[5][1]);
             
             target_pose.header.frame_id = "map";
             target_pose.pose.position.x = coordArray[5][0];
@@ -157,8 +159,10 @@ void process_target_cb()
     receive_target();
 }
 
+// 对接收到的target_pose进行最后处理，用于融合方案中代替target_cb
 void receive_target()
 {
+    // 根据任务状态调整目标位置进行纠偏
     if (target_index < 3 && target_pose.pose.position.z != -1)
     {
         ros::Duration delay = ros::Time::now() - target_pose.header.stamp;
@@ -171,10 +175,12 @@ void receive_target()
         }
     }
 
+    // 判断是否为移动靶
     if (target_pose.pose.position.z == 2.0)
         is_moving_target = true;
 
-    if (mission_state == ADJUSTING) // 如果调整阶段靶标位置连续两次偏差超过0.5米，则认为视觉误识别（假定OVERLOOKING的识别结果没有问题，因为之前没有出过错）
+    // 如果调整阶段靶标位置连续两次偏差超过0.5米，则认为视觉误识别（假定OVERLOOKING的识别结果没有问题，因为之前没有出过错）
+    if (mission_state == ADJUSTING)
     {
         if (distance(target_pose, last_target_point) > 0.5)
         {
