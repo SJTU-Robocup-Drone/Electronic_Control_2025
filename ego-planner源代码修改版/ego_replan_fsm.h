@@ -81,7 +81,7 @@ namespace ego_planner
     std_msgs::Bool escape_state_msg_;
     Eigen::Vector3d original_target_;
     Eigen::Vector3d escape_target_;
-    geometry_msgs::Pose escape_pose;
+    geometry_msgs::PoseStamped escape_pose;
     geometry_msgs::PoseStamped original_target_pose_;
     ros::Publisher escape_pose_pub_;
     ros::Publisher escape_state_pub_;

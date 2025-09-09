@@ -11,10 +11,12 @@
 ros::Publisher pos_cmd_pub;
 ros::Publisher raw_setpoint_pub;          // 新增：发往 MAVROS 原始 setpoint
 ros::Subscriber nav_state_sub;
+ros::Subscriber escape_state_sub;
 
 quadrotor_msgs::PositionCommand cmd;
 mavros_msgs::PositionTarget cmd_raw;
 bool is_navigating = false;
+bool is_escaping = false;
 double pos_gain[3] = {0, 0, 0};
 double vel_gain[3] = {0, 0, 0};
 
@@ -233,7 +235,7 @@ void cmdCallback(const ros::TimerEvent &e)
   last_yaw_ = cmd.yaw;
 
   pos_cmd_pub.publish(cmd);
-  if(is_navigating){
+  if(is_navigating && !is_escaping){ // 仅在自主导航且非逃逸状态下发布 MAVROS setpoint
     // --- 将 PositionCommand 映射到 MAVROS PositionTarget 并发布 ---
     cmd_raw.header.stamp = time_now;
     cmd_raw.header.frame_id = "map";
@@ -272,6 +274,11 @@ void nav_state_cb(const std_msgs::Bool::ConstPtr &msg)
   is_navigating = msg -> data;
 }
 
+void escape_state_cb(const std_msgs::Bool::ConstPtr &msg)
+{
+  is_escaping = msg -> data;
+}
+
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "traj_server");
@@ -283,6 +290,7 @@ int main(int argc, char **argv)
   pos_cmd_pub = node.advertise<quadrotor_msgs::PositionCommand>("/position_cmd", 50);
   raw_setpoint_pub = node.advertise<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 50);
   nav_state_sub = node.subscribe<std_msgs::Bool>("/nav_state", 10, nav_state_cb);
+  escape_state_sub = node.subscribe<std_msgs::Bool>("/escape_state", 10, escape_state_cb);
 
   ros::Timer cmd_timer = node.createTimer(ros::Duration(0.01), cmdCallback);
 

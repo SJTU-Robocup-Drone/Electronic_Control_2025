@@ -17,7 +17,7 @@ namespace ego_planner
     has_original_target_ = false;
     escape_target_ = Eigen::Vector3d::Zero();
     original_target_ = Eigen::Vector3d::Zero();
-    escape_pose_pub_ = nh.advertise<geometry_msgs::Pose>("/pose_cmd", 50);
+    escape_pose_pub_ = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 50);
     escape_state_pub_ = nh.advertise<std_msgs::Bool>("/escape_state", 10);
     self_trig_pub_ = nh.advertise<geometry_msgs::PoseStamped>("/control/move_base_simple/goal", 10);
 
@@ -567,9 +567,11 @@ namespace ego_planner
         escape_state_msg_.data = true;
         escape_state_pub_.publish(escape_state_msg_);
 
-        escape_pose.position.x = escape_target_(0);
-        escape_pose.position.y = escape_target_(1);
-        escape_pose.position.z = escape_target_(2);
+        escape_pose.header.stamp = ros::Time::now();
+        escape_pose.header.frame_id = "map";
+        escape_pose.pose.position.x = escape_target_(0);
+        escape_pose.pose.position.y = escape_target_(1);
+        escape_pose.pose.position.z = escape_target_(2);
         escape_pose_pub_.publish(escape_pose);
         ROS_INFO_THROTTLE(1.0, "Escaping to (%.2f, %.2f, %.2f)", escape_pose.position.x, escape_pose.position.y, escape_pose.position.z);
 
