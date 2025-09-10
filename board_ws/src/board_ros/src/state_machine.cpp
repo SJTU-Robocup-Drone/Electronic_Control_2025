@@ -492,11 +492,14 @@ void following(ros::Rate &rate)
         if (target_pose.pose.position.z != -1) // 接受有效点后放入缓存
             visionCallback(target_pose);
 
-        geometry_msgs::PoseStamped ref_pose;
-        computeOverheadVelocityCmd(computeAverageVelocity(), ros::Time::now(), target_pose.header.stamp, vel, ref_pose.pose.position);
+        // geometry_msgs::PoseStamped ref_pose;
+        // computeOverheadVelocityCmd(computeAverageVelocity(), ros::Time::now(), target_pose.header.stamp, vel, ref_pose.pose.position);
 
-            local_vel_pub.publish(vel);
-            
+        //     local_vel_pub.publish(vel);
+
+        geometry_msgs::Point p = predictNextPosition(1/30);
+        set_and_pub_pose(p.x, p.y, current_pose.pose.position.z);
+
         if (distance(current_pose, pose.pose.position) < threshold_distance / 2.0 && ros::ok()) // 记录成功跟上的次数
             follow_timer++;
         else

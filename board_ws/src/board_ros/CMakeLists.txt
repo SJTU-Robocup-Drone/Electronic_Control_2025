@@ -123,7 +123,7 @@ find_package(Eigen3 REQUIRED)
 
 catkin_package(
   CATKIN_DEPENDS roscpp rospy
-  INCLUDE_DIRS include
+  INCLUDE_DIRS include inc
   # LIBRARIES your_library_name  # 如果有库需要导出
 )
 
@@ -134,11 +134,10 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-   include
   ${EIGEN3_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
 
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${CMAKE_CURRENT_SOURCE_DIR}/inc
 )
 
 ## Declare a C++ library
