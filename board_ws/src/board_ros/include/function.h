@@ -24,7 +24,7 @@ struct FollowParams
 {
     double height = 1.5; // 固定高度（你要的 1.5 m）
     double tau = 0.25;   // 常规超前补偿
-    double kp_xy = 0;
+    double kp_xy = 1;
     double kd_xy = 0.0;
     double vmax_xy = 5.0;
     double vmax_z = 0.0; // 固定高度时不用
