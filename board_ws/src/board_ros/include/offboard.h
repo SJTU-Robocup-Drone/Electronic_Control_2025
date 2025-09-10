@@ -1,8 +1,10 @@
 #pragma once
 #include <ros/ros.h>
+#include <ros/timer.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Int32.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Twist.h>
@@ -13,7 +15,12 @@
 #include <mavros_msgs/State.h>
 #include <deque>
 #include <vector>
-
+#include <algorithm>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/utils.h>
+#include <cmath>
+#include <map>
+#include <string>
 // —— 状态（原名保留）——
 enum MissionState
 {

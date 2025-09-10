@@ -17,15 +17,17 @@ ros::Subscriber target_sub;
 ros::Subscriber local_pos_sub;
 ros::Subscriber state_sub;
 ros::Subscriber nav_check_sub;
+ros::Subscriber pose_sub;
+ros::Subscriber man_check_sub;
+ros::Subscriber return_state_sub;
+ros::Subscriber is_done_sub;
+ros::Subscriber detection_sub;
 
 ros::ServiceClient arming_client;
 ros::ServiceClient set_mode_client;
 
-void pose_cb(const nav_msgs::Odometry::ConstPtr &msg)
-{
-    current_pose.header = msg->header;
-    current_pose.pose = msg->pose.pose;
-}
+ros::Timer process_target_timer;
+
 
 void state_cb(const mavros_msgs::State::ConstPtr &msg)
 {
@@ -56,6 +58,8 @@ void nav_check_cb(const mavros_msgs::PositionTarget::ConstPtr &msg)
 // 统一通信初始化
 void init_nav_interfaces(ros::NodeHandle &nh)
 {
+    target_pose.pose.position.z = -1;
+
     local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
     local_vel_pub = nh.advertise<geometry_msgs::Twist>("/mavros/setpoint_velocity/cmd_vel_unstamped", 10);
     nav_goal_pub = nh.advertise<geometry_msgs::PoseStamped>("/control/move_base_simple/goal", 10);
@@ -69,7 +73,14 @@ void init_nav_interfaces(ros::NodeHandle &nh)
     state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, state_cb);
     nav_check_sub = nh.subscribe<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 50, nav_check_cb);
     target_sub = nh.subscribe<geometry_msgs::PoseStamped>("/target", 10, target_cb);
+    man_check_sub = nh.subscribe<std_msgs::Int32>("/manba_input", 10, man_check_cb);
+    return_state_sub = nh.subscribe<std_msgs::Bool>("/return_state", 10, return_state_cb);
+    is_done_sub = nh.subscribe<std_msgs::Bool>("/done_state", 10, is_done_cb);
+    detection_sub = nh.subscribe<geometry_msgs::PointStamped>("/detection_results", 10, detection_cb);
 
     arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
     set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
+
+    process_target_timer = nh.createTimer(ros::Duration(0.02), [](const ros::TimerEvent &)
+                                          { process_target_cb(); });
 }

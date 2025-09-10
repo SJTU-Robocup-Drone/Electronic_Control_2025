@@ -1,17 +1,6 @@
 #include "vision.h"
 #include "function.h"
-#include <algorithm>
-#include <ros/ros.h>
-#include <ros/timer.h>
-#include <std_msgs/Int32.h>
-#include <std_msgs/Bool.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/PointStamped.h>
-#include <tf2/LinearMath/Matrix3x3.h>
-#include <tf2/utils.h>
-#include <cmath>
-#include <map>
-#include <string>
+
 
 // 定义视觉缓存
 std::deque<TimedPose> history_;
@@ -25,18 +14,10 @@ int current_index = 0;
 double yaw = 0;
 double coordX = 0;
 double coordY = 0;
-ros::Timer process_target_timer;
 
 // 声明视觉信息接收相关函数
-void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg);
 void process_target_cb();
 void receive_target();
-
-ros::Subscriber pose_sub;
-ros::Subscriber man_check_sub;
-ros::Subscriber return_state_sub;
-ros::Subscriber is_done_sub;
-ros::Subscriber detection_sub;
 
 // 目标类型映射
 std::map<std::string, int> target_types = {
@@ -50,9 +31,10 @@ std::map<std::string, int> target_types = {
 // 目标坐标存储
 double coordArray[6][2] = {{-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}};
 
-void pose_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
+void pose_cb(const nav_msgs::Odometry::ConstPtr &msg)
 {
-    current_pose = *msg;
+    current_pose.header = msg->header;
+    current_pose.pose = msg->pose.pose;
     coordX = current_pose.pose.position.x;
     coordY = current_pose.pose.position.y;
     yaw = tf2::getYaw(current_pose.pose.orientation);
@@ -73,21 +55,6 @@ void is_done_cb(const std_msgs::Bool::ConstPtr &msg)
     is_done = msg->data;
 }
 
-// 初始化融合方案的视觉相关接口
-void init_vis_interfaces(ros::NodeHandle &nh)
-{
-    ROS_INFO("Initializing vision interfaces...");
-    target_pose.pose.position.z = -1;
-
-    pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, pose_cb);
-    man_check_sub = nh.subscribe<std_msgs::Int32>("/manba_input", 10, man_check_cb);
-    return_state_sub = nh.subscribe<std_msgs::Bool>("/return_state", 10, return_state_cb);
-    is_done_sub = nh.subscribe<std_msgs::Bool>("/done_state", 10, is_done_cb);
-    detection_sub = nh.subscribe<geometry_msgs::PointStamped>("/detection_results", 10, detection_cb);
-
-    process_target_timer = nh.createTimer(ros::Duration(0.02), [](const ros::TimerEvent &)
-                                          { process_target_cb(); });
-}
 // 接收视觉节点发的相对目标坐标并转化为全局坐标
 void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg) {
     target_pose.header.stamp = msg -> header.stamp; // 记录消息时间戳
