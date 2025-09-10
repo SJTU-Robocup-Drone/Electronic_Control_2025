@@ -13,6 +13,7 @@ namespace ego_planner
     trigger_ = false;
 
     // new-added for escaping
+    odom_cnt = 0;
     is_in_inflated_zone_ = 0;
     has_original_target_ = false;
     escape_target_ = Eigen::Vector3d::Zero();
@@ -346,6 +347,19 @@ namespace ego_planner
     odom_orient_.z() = msg->pose.pose.orientation.z;
 
     have_odom_ = true;
+    if((exec_state_ == REPLAN_TRAJ || exec_state_ == EXEC_TRAJ) && ++odom_cnt >= 10){
+      odom_cnt = 0;
+      auto grid_map = planner_manager_->grid_map_;
+      is_in_inflated_zone_ = grid_map->getInflateOccupancy(odom_pos_);
+      if(is_in_inflated_zone_){
+        ROS_WARN_THROTTLE(1.0, "Drone in inflated zone! Switching to ESCAPING.");
+        if (findEscapeTarget(escape_target_)) {
+          changeFSMExecState(ESCAPING, "ESCAPE");
+        } else {
+          ROS_ERROR("Failed to find escape target! Attempting original goal.");
+        }
+      }
+    }
   }
 
   void EGOReplanFSM::changeFSMExecState(FSM_EXEC_STATE new_state, string pos_call) // 状态机状态转换函数；两个参数分别是新状态和调用位置的字符串描述（第二个参数只用于调试输出）
@@ -536,6 +550,8 @@ namespace ego_planner
     }
 
     case ESCAPING: {
+      escape_state_msg_.data = true;
+      escape_state_pub_.publish(escape_state_msg_);
       // 检查是否离开膨胀区
       auto grid_map = planner_manager_->grid_map_;
       is_in_inflated_zone_ = grid_map->getInflateOccupancy(odom_pos_);
@@ -564,8 +580,8 @@ namespace ego_planner
 
         findEscapeTarget(escape_target_); 
       }*/
-      double dist = (odom_pos_ - escape_target_).norm();
-      constexpr double threshold = 0.1;
+      // double dist = (odom_pos_ - escape_target_).norm();
+      // constexpr double threshold = 0.1;
       if (is_in_inflated_zone_ != 1 ){
         // if(dist < threshold){
           ROS_INFO("Successfully escaped inflated zone. Switching to INIT and Planning to original target.");
@@ -573,9 +589,6 @@ namespace ego_planner
         // }
       }
       else{
-        escape_state_msg_.data = true;
-        escape_state_pub_.publish(escape_state_msg_);
-
         escape_pose.header.stamp = ros::Time::now();
         escape_pose.header.frame_id = "map";
         escape_pose.pose.position.x = escape_target_(0);
