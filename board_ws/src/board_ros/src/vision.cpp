@@ -111,7 +111,7 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
             coordArray[type][0] = global_x;
             coordArray[type][1] = global_y;
 
-            ROS_INFO_THROTTLE(2.0, "更新目标 %s 相对坐标: (%.2f, %.2f)", target_name.c_str(), global_x, global_y);
+            ROS_INFO_THROTTLE(2.0, "Find target %s at: (%.2f, %.2f)", target_name.c_str(), global_x, global_y);
         }
     }
 }
