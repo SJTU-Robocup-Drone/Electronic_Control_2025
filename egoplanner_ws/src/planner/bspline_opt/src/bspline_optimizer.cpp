@@ -7,16 +7,16 @@ namespace ego_planner
 
   void BsplineOptimizer::setParam(ros::NodeHandle &nh)
   {
-    nh.getParam("optimization/lambda_smooth", lambda1_);
-    nh.getParam("optimization/lambda_collision", lambda2_);
-    nh.getParam("optimization/lambda_feasibility", lambda3_);
-    nh.getParam("optimization/lambda_fitness", lambda4_);
+    nh.param("optimization/lambda_smooth", lambda1_, -1.0);
+    nh.param("optimization/lambda_collision", lambda2_, -1.0);
+    nh.param("optimization/lambda_feasibility", lambda3_, -1.0);
+    nh.param("optimization/lambda_fitness", lambda4_, -1.0);
 
-    nh.getParam("optimization/dist0", dist0_);
-    nh.getParam("optimization/max_vel", max_vel_);
-    nh.getParam("optimization/max_acc", max_acc_);
+    nh.param("optimization/dist0", dist0_, -1.0);
+    nh.param("optimization/max_vel", max_vel_, -1.0);
+    nh.param("optimization/max_acc", max_acc_, -1.0);
 
-    nh.getParam("optimization/order", order_);
+    nh.param("optimization/order", order_, 3);
   }
 
   void BsplineOptimizer::setEnvironment(const GridMap::Ptr &env)
@@ -879,7 +879,7 @@ namespace ego_planner
     ;
     bool flag_force_return, flag_occ, success;
     new_lambda2_ = lambda2_;
-    constexpr int MAX_RESTART_NUMS_SET = 6; // 新修改：最大重启次数从3次提高到6次
+    constexpr int MAX_RESTART_NUMS_SET = 6; // 原本是3
     do
     {
       /* ---------- prepare ---------- */
@@ -932,9 +932,8 @@ namespace ego_planner
                    << cps_.points.col(3).transpose() << "\n"
                    << cps_.points.col(4).transpose() << endl;
               ROS_WARN("First 3 control points in obstacles! return false, t=%f", t);
-              // 新修改：只有在达到最大重启次数后，才会因为前3个点在障碍物内而返回失败
               if(restart_nums == MAX_RESTART_NUMS_SET){
-                ROS_ERROR("Force to stop optimization due to the first 3 control points in obstacles.");
+                ROS_ERROR("Too many restarts, return false.");
                 return false;
               }
             }

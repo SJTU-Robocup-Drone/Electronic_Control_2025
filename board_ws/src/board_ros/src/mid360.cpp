@@ -122,8 +122,7 @@ int main(int argc, char **argv)
             vision.header.stamp = ros::Time::now();
             vision_pub.publish(vision);
     
-            ROS_INFO("\nposition in enu:\n   x: %.18f\n   y: %.18f\n   z: %.18f\norientation of lidar:\n   x: %.18f\n   y: %.18f\n   z: %.18f\n   w: %.18f", \
-            p_enu[0],p_enu[1],p_enu[2],q_mav.x(),q_mav.y(),q_mav.z(),q_mav.w());
+            ROS_INFO_THROTTLE(1.0, "\nposition in enu:\n   x: %.5f\n   y: %.5f\n   z: %.5f\n", p_enu[0],p_enu[1],p_enu[2]);
 
         }
 

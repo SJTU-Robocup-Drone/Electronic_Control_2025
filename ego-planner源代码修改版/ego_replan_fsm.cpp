@@ -398,6 +398,8 @@ namespace ego_planner
         trigger_ = false;
         escape_state_msg_.data = false;
         escape_state_pub_.publish(escape_state_msg_);
+        ROS_INFO("Switching to INIT state and planning to original target.");
+        ros::Duration(1.0).sleep(); // wait for the above message to be sent
         original_target_pose_.header.stamp = ros::Time::now();
         original_target_pose_.header.frame_id = "map";
         original_target_pose_.pose.position.x = end_pt_(0);
@@ -442,8 +444,13 @@ namespace ego_planner
       bool flag_random_poly_init;
       if (timesOfConsecutiveStateCalls().first == 1)
         flag_random_poly_init = false;
-      else
+      else if(timesOfConsecutiveStateCalls().first <= 20)
         flag_random_poly_init = true;
+      else{
+        ROS_ERROR("Too many consecutive calls of GEN_NEW_TRAJ, switching to ESCAPING");
+        changeFSMExecState(ESCAPING, "FSM");
+        break;
+      }
 
       bool success = callReboundReplan(true, flag_random_poly_init);
       if (success)
@@ -513,7 +520,9 @@ namespace ego_planner
 
       if (flag_escape_emergency_) // Avoiding repeated calls
       {
-        callEmergencyStop(odom_pos_); // 执行紧急制动
+        // callEmergencyStop(odom_pos_); // 执行紧急制动
+        // changeFSMExecState(ESCAPING, "FSM");
+        findEscapeTarget(escape_target_);
         changeFSMExecState(ESCAPING, "FSM");
       }
       else
@@ -573,7 +582,7 @@ namespace ego_planner
         escape_pose.pose.position.y = escape_target_(1);
         escape_pose.pose.position.z = escape_target_(2);
         escape_pose_pub_.publish(escape_pose);
-        ROS_INFO_THROTTLE(1.0, "Escaping to (%.2f, %.2f, %.2f)", escape_pose.position.x, escape_pose.position.y, escape_pose.position.z);
+        ROS_INFO_THROTTLE(1.0, "Escaping to (%.2f, %.2f, %.2f)", escape_pose.pose.position.x, escape_pose.pose.position.y, escape_pose.pose.position.z);
 
         // findEscapeTarget(escape_target_);
       }

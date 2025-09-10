@@ -24,12 +24,12 @@ void hovering(float z, float time, bool if_exit, ros::Rate &rate)
     pose.pose.position.x = current_pose.pose.position.x;
     pose.pose.position.y = current_pose.pose.position.y;
     pose.pose.position.z = z;
+    pose.pose.orientation = initial_pose.pose.orientation; // 将姿态恢复为初始朝向
     last_request = ros::Time::now();
-    ROS_INFO("Hovering at height %f for %f seconds.", z, time);
+    ROS_INFO("Hovering at height %.2f for %.2f seconds.", z, time);
     while (ros::ok() && ros::Time::now() - last_request < ros::Duration(time))
     {
         ros::spinOnce();
-        pose.header.stamp = ros::Time::now(); // 更新时间戳
         local_pos_pub.publish(pose);          // 保持悬停
         rate.sleep();
         if (if_exit == true)

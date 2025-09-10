@@ -84,21 +84,15 @@ void load_waypoints(ros::NodeHandle& nh, const ros::Time& time_base) {
 }
 
 void publish_waypoints() {
-    // avoid publish empty waypoints
-    if (waypoints.poses.empty()) {
-        ROS_WARN_THROTTLE(2.0, "[waypoint_generator] waypoints empty, skip publish.");
-        return;
-    }
-
     waypoints.header.frame_id = std::string("world");
     waypoints.header.stamp = ros::Time::now();
     pub1.publish(waypoints);
-    // geometry_msgs::PoseStamped init_pose;
-    // init_pose.header = odom.header;
-    // init_pose.pose = odom.pose.pose;
-    // waypoints.poses.insert(waypoints.poses.begin(), init_pose);
+    geometry_msgs::PoseStamped init_pose;
+    init_pose.header = odom.header;
+    init_pose.pose = odom.pose.pose;
+    waypoints.poses.insert(waypoints.poses.begin(), init_pose);
     // pub2.publish(waypoints);
-    // waypoints.poses.clear();
+    waypoints.poses.clear();
 }
 
 void publish_waypoints_vis() {

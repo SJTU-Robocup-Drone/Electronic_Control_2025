@@ -55,7 +55,7 @@ EGO-Planner: An ESDF-free Gradient-based Local Planner for Quadrotors, Xin Zhou,
 
 **Step 1**. Install [Armadillo](http://arma.sourceforge.net/), which is required by **uav_simulator**.
 ```
-sudo apt-get insgit clone https://github.com/ZJU-FAST-Lab/ego-planner.gittall libarmadillo-dev
+sudo apt-get install libarmadillo-dev
 ``` 
 
 **Step 2**. Clone the code from github or gitee. This two repositories synchronize automaticly.

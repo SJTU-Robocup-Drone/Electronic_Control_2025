@@ -233,9 +233,9 @@ bool AStar::AstarSearch(const double step_size, Vector3d start_pt, Vector3d end_
                     }
                 }
         ros::Time time_2 = ros::Time::now();
-        if ((time_2 - time_1).toSec() > 0.2)
+        if ((time_2 - time_1).toSec() > 0.5)
         {
-            ROS_WARN("Failed in A star path searching !!! 0.2 seconds time limit exceeded.");
+            ROS_WARN("Failed in A star path searching !!! 0.5 seconds time limit exceeded.");
             return false;
         }
     }

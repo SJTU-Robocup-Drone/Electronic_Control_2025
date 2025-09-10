@@ -10,7 +10,6 @@
 #include <plan_manage/plan_container.hpp>
 #include <ros/ros.h>
 #include <traj_utils/planning_visualization.h>
-#include <std_msgs/Bool.h>
 
 namespace ego_planner
 {
@@ -44,16 +43,6 @@ namespace ego_planner
     GridMap::Ptr grid_map_;
 
   private:
-    // 新增：参数调整
-    // 订阅器 & NodeHandle
-    ros::Subscriber param_set_sub_;
-    ros::NodeHandle nh_;              // 保存一份拷贝，回调里使用
-    // std::atomic<bool> pending_reload_{false};
-    // std::mutex param_mtx_;            // 保护重载时的共享资源
-
-    // 回调
-    void obsParamSetCb(const std_msgs::Bool::ConstPtr& msg);
-
     /* main planning algorithms & modules */
     PlanningVisualization::Ptr visualization_;
 

@@ -134,9 +134,6 @@ struct MappingData {
 
 class GridMap {
 public:
-  // 新增：参数调整
-  void reloadParams(const ros::NodeHandle& nh);  // 真正读参+按新参重建
-
   GridMap() {}
   ~GridMap() {}
 
@@ -185,9 +182,6 @@ public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
 private:
-  // 新增：参数调整
-  ros::NodeHandle nh_;                           // 可选：保存一个句柄（若你喜欢）
-
   MappingParameters mp_;
   MappingData md_;
 

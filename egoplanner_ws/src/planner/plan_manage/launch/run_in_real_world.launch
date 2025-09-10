@@ -79,8 +79,21 @@
   <node pkg="waypoint_generator" name="waypoint_generator" type="waypoint_generator" output="screen">
     <remap from="~odom" to="$(arg odom_topic)"/>        
     <remap from="~goal" to="/control/move_base_simple/goal"/>
+    <!-- 重要：把接收目标点的话题多加一个/control以区分 -->
     <remap from="~traj_start_trigger" to="/traj_start_trigger" />
     <param name="waypoint_type" value="manual-lonely-waypoint"/>    
   </node>
+
+  <!-- use simulator
+  <include file="$(find ego_planner)/launch/simulator.xml">
+    <arg name="map_size_x_" value="$(arg map_size_x)"/>
+    <arg name="map_size_y_" value="$(arg map_size_y)"/>
+    <arg name="map_size_z_" value="$(arg map_size_z)"/>
+    <arg name="c_num" value="200"/>
+    <arg name="p_num" value="200"/>
+    <arg name="min_dist" value="1.2"/>
+
+    <arg name="odometry_topic" value="$(arg odom_topic)" />
+  </include> -->
 
 </launch>

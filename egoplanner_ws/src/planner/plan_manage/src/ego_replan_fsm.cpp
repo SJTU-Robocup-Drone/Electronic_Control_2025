@@ -12,6 +12,15 @@ namespace ego_planner
     have_odom_ = false;
     trigger_ = false;
 
+    // new-added for escaping
+    is_in_inflated_zone_ = 0;
+    has_original_target_ = false;
+    escape_target_ = Eigen::Vector3d::Zero();
+    original_target_ = Eigen::Vector3d::Zero();
+    escape_pose_pub_ = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 50);
+    escape_state_pub_ = nh.advertise<std_msgs::Bool>("/escape_state", 10);
+    self_trig_pub_ = nh.advertise<geometry_msgs::PoseStamped>("/control/move_base_simple/goal", 10);
+
     /*  fsm param  */
     nh.param("fsm/flight_type", target_type_, -1);
     nh.param("fsm/thresh_replan", replan_thresh_, -1.0);
@@ -109,6 +118,7 @@ namespace ego_planner
 
   void EGOReplanFSM::waypointCallback(const nav_msgs::PathConstPtr &msg)
   {
+    /* old version
     if (msg->poses[0].pose.position.z < -0.1)
       return;
 
@@ -125,7 +135,7 @@ namespace ego_planner
     if (success)
     {
 
-      /*** display ***/
+
       constexpr double step_size_t = 0.1;
       int i_end = floor(planner_manager_->global_data_.global_duration_ / step_size_t);
       vector<Eigen::Vector3d> gloabl_traj(i_end);
@@ -138,7 +148,7 @@ namespace ego_planner
       have_target_ = true;
       have_new_target_ = true;
 
-      /*** FSM ***/
+
       if (exec_state_ == WAIT_TARGET)
         changeFSMExecState(GEN_NEW_TRAJ, "TRIG");
       else if (exec_state_ == EXEC_TRAJ)
@@ -150,8 +160,173 @@ namespace ego_planner
     else
     {
       ROS_ERROR("Unable to generate global trajectory!");
+    }*/
+
+    // new-added code
+    if (msg->poses[0].pose.position.z < -0.1) // 高度有效性检查
+      return;
+    if (msg->poses.size() < 1){ // 检查消息中是否有有效的目标点
+      ROS_WARN("blank waypoints, return directly");
+      return;
+    }
+    cout << "Triggered!" << endl;
+    trigger_ = true;
+    init_pt_ = odom_pos_;
+    end_pt_ << msg->poses[0].pose.position.x, msg->poses[0].pose.position.y, msg->poses[0].pose.position.z;
+
+    // check whether the target is in obstacle area.
+    // if it's trapped in obstacles, it should be moved to a safe area.
+    auto grid_map = planner_manager_->grid_map_;
+    int target_in_inflated_zone_ = grid_map->getInflateOccupancy(end_pt_);
+    ROS_INFO("getInflateOccupancy of target = %d",target_in_inflated_zone_);
+    if (target_in_inflated_zone_) {
+      ROS_WARN("Target in inflated zone! Try to adjust the target point.");
+      // finding a new target
+      if (adjustTarget(end_pt_)) {
+        ROS_INFO("Find a safe goal. ");
+      } else {
+        ROS_ERROR("Failed to find safe goal! Attempting original goal.");
+      }
+    }
+
+    // 保存原始目标点
+    original_target_ = end_pt_;
+    has_original_target_ = true;
+
+    // 检测是否在障碍物膨胀区内
+    is_in_inflated_zone_ = grid_map->getInflateOccupancy(odom_pos_);
+    ROS_INFO("getInflateOccupancy of drone = %d",is_in_inflated_zone_);
+    if (is_in_inflated_zone_) {
+      ROS_WARN("Drone in inflated zone! Starting escape procedure.");
+    
+      // 生成脱困目标点（膨胀区外最近安全点）
+      if (findEscapeTarget(escape_target_)) {
+        // 切换到脱困状态
+        changeFSMExecState(ESCAPING, "ESCAPE");
+      } else {
+        ROS_ERROR("Failed to find escape target! Attempting original goal.");
+      }
+    }
+
+    bool success = false;
+    success = planner_manager_->planGlobalTraj(odom_pos_, odom_vel_, Eigen::Vector3d::Zero(), end_pt_, Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero());
+    // 六个参数分别是起始位置、速度、加速度和目标位置、速度、加速度
+
+    visualization_->displayGoalPoint(end_pt_, Eigen::Vector4d(0, 0.5, 0.5, 1), 0.3, 0); // 可视化目标点；四个参数分别为目标点，颜色，尺寸和标识
+
+    if (success)
+    {
+
+      /*** display ***/
+      constexpr double step_size_t = 0.1; // 采样时间步长
+      int i_end = floor(planner_manager_->global_data_.global_duration_ / step_size_t); // 向下取整计算以时间为采样依据的采样点的数量
+      vector<Eigen::Vector3d> gloabl_traj(i_end);
+      for (int i = 0; i < i_end; i++)
+      {
+        gloabl_traj[i] = planner_manager_->global_data_.global_traj_.evaluate(i * step_size_t); // 通过时间获得采样点
+      }
+
+      end_vel_.setZero();
+      have_target_ = true;
+      have_new_target_ = true;
+
+      /*** FSM ***/
+      if (exec_state_ == WAIT_TARGET) // 如果当前状态是等待目标点，则切换到生成新轨迹状态
+        changeFSMExecState(GEN_NEW_TRAJ, "TRIG");
+      else if (exec_state_ == EXEC_TRAJ) // 如果当前状态是执行轨迹，则切换到重新规划轨迹状态
+        changeFSMExecState(REPLAN_TRAJ, "TRIG");
+
+      // visualization_->displayGoalPoint(end_pt_, Eigen::Vector4d(1, 0, 0, 1), 0.3, 0);
+      visualization_->displayGlobalPathList(gloabl_traj, 0.1, 0); // 可视化全局路径列表；三个参数分别为路径点数组，路径点间隔和标识
+    }
+    else
+    {
+      ROS_ERROR("Unable to generate global trajectory!");
     }
   }
+
+  bool EGOReplanFSM::findEscapeTarget(Eigen::Vector3d& escape_target) {
+    auto grid_map = planner_manager_->grid_map_;
+    const int search_radius = 10; // 最大搜索半径（栅格单位）
+  
+    // 获取当前位置栅格坐标
+    Eigen::Vector3i current_idx;
+    grid_map->posToIndex(odom_pos_,current_idx);
+  
+    // 螺旋搜索安全点
+    for (int r = 1; r <= search_radius; ++r) {
+      for (int x = -r; x <= r; ++x) {
+        for (int y = -r; y <= r; ++y) {
+          if (abs(x) != r && abs(y) != r) continue; // 只检查边界
+        
+          Eigen::Vector3i candidate_idx = current_idx + Eigen::Vector3i(x, y, 0);
+          Eigen::Vector3d candidate_pos;
+          grid_map->indexToPos(candidate_idx,candidate_pos);
+        
+          // 检查是否安全且不在膨胀区内
+          if (!grid_map->getInflateOccupancy(candidate_pos)) {
+            Eigen::Vector3i escape_idx = current_idx + Eigen::Vector3i(x,y,0);
+            grid_map->indexToPos(escape_idx, escape_target);
+            escape_target_(2) = 1.0;
+            ROS_INFO_THROTTLE(1.0, "Find escaping target at (%.2f, %.2f, %.2f)", escape_target(0), escape_target(1), escape_target(2));
+            return true;
+          }
+        }
+      }
+    }
+    return false; // 未找到安全点
+
+  }// new-added code
+
+  bool EGOReplanFSM::adjustTarget(Eigen::Vector3d& target){
+    /* old version
+    auto grid_map = planner_manager_->grid_map_;
+    const int search_radius = 10; // 最大搜索半径（栅格单位）
+    // get target's 栅格坐标
+    Eigen::Vector3i target_idx;
+    grid_map->posToIndex(target,target_idx);
+
+    // 螺旋搜索安全点
+    for (int r = 1; r <= search_radius; ++r) {
+      for (int x = -r; x <= r; ++x) {
+        for (int y = -r; y <= r; ++y) {
+          if (abs(x) != r && abs(y) != r) continue; // 只检查边界
+        
+          Eigen::Vector3i candidate_idx = target_idx + Eigen::Vector3i(x, y, 0);
+          Eigen::Vector3d candidate_pos;
+          grid_map->indexToPos(candidate_idx,candidate_pos);
+        
+          // 检查是否安全且不在膨胀区内
+          if (!grid_map->getInflateOccupancy(candidate_pos)) {
+            Eigen::Vector3i escape_idx = target_idx + Eigen::Vector3i(x,y,0);
+            grid_map->indexToPos(escape_idx, target);
+            target(2) = 1.0;
+            ROS_INFO_THROTTLE(1.0, "Find safe target(terminal point) at (%.2f, %.2f, %.2f)", target(0), target(1), target(2));
+            return true;
+          }
+        }
+      }
+    }*/
+    auto grid_map = planner_manager_->grid_map_;
+    Eigen::Vector3d direction = (odom_pos_ - target);
+    direction(2) = 0; // restrict vector "direction" in 2 dimensions
+    direction.normalize();
+    cout << direction << endl;
+
+    constexpr double step = 0.1;
+    for(int i = 1; i <= 10; ++i){
+      Eigen::Vector3d candidate_pos = target + direction * i * step;
+      int candidate_in_inflated_zone = grid_map->getInflateOccupancy(candidate_pos);
+      ROS_INFO("getInflateOccupancy of candidate %d (%.2f, %.2f, %.2f) = %d", i, candidate_pos(0), candidate_pos(1), candidate_pos(2), candidate_in_inflated_zone);
+      if(!candidate_in_inflated_zone){
+        target = candidate_pos;
+        target(2) = 1.0;
+        ROS_INFO_THROTTLE(1.0, "Find safe target(terminal point) at (%.2f, %.2f, %.2f)", target(0), target(1), target(2));
+        return true;
+      }
+    }
+    return false; // 未找到安全点
+  }// new added
 
   void EGOReplanFSM::odometryCallback(const nav_msgs::OdometryConstPtr &msg)
   {
@@ -173,35 +348,35 @@ namespace ego_planner
     have_odom_ = true;
   }
 
-  void EGOReplanFSM::changeFSMExecState(FSM_EXEC_STATE new_state, string pos_call)
+  void EGOReplanFSM::changeFSMExecState(FSM_EXEC_STATE new_state, string pos_call) // 状态机状态转换函数；两个参数分别是新状态和调用位置的字符串描述（第二个参数只用于调试输出）
   {
 
-    if (new_state == exec_state_)
+    if (new_state == exec_state_) // 处理和存储连续调用次数
       continously_called_times_++;
     else
       continously_called_times_ = 1;
 
-    static string state_str[7] = {"INIT", "WAIT_TARGET", "GEN_NEW_TRAJ", "REPLAN_TRAJ", "EXEC_TRAJ", "EMERGENCY_STOP"};
+    static string state_str[8] = {"INIT", "WAIT_TARGET", "GEN_NEW_TRAJ", "REPLAN_TRAJ", "EXEC_TRAJ", "EMERGENCY_STOP", "ESCAPING"};
     int pre_s = int(exec_state_);
-    exec_state_ = new_state;
-    cout << "[" + pos_call + "]: from " + state_str[pre_s] + " to " + state_str[int(new_state)] << endl;
+    exec_state_ = new_state; // 切换状态机状态
+    cout << "[" + pos_call + "]: from " + state_str[pre_s] + " to " + state_str[int(new_state)] << endl; // 输出状态切换信息
   }
 
-  std::pair<int, EGOReplanFSM::FSM_EXEC_STATE> EGOReplanFSM::timesOfConsecutiveStateCalls()
+  std::pair<int, EGOReplanFSM::FSM_EXEC_STATE> EGOReplanFSM::timesOfConsecutiveStateCalls() // 获取连续调用次数和当前状态
   {
     return std::pair<int, FSM_EXEC_STATE>(continously_called_times_, exec_state_);
   }
 
-  void EGOReplanFSM::printFSMExecState()
+  void EGOReplanFSM::printFSMExecState() // 输出当前状态机状态
   {
-    static string state_str[7] = {"INIT", "WAIT_TARGET", "GEN_NEW_TRAJ", "REPLAN_TRAJ", "EXEC_TRAJ", "EMERGENCY_STOP"};
+    static string state_str[8] = {"INIT", "WAIT_TARGET", "GEN_NEW_TRAJ", "REPLAN_TRAJ", "EXEC_TRAJ", "EMERGENCY_STOP", "ESCAPING"};
 
     cout << "[FSM]: state: " + state_str[int(exec_state_)] << endl;
   }
 
-  void EGOReplanFSM::execFSMCallback(const ros::TimerEvent &e)
+  void EGOReplanFSM::execFSMCallback(const ros::TimerEvent &e) // 状态机主回调函数（由定时器控制执行）
   {
-
+    // 每100次调用打印一次状态机状态和相关信息
     static int fsm_num = 0;
     fsm_num++;
     if (fsm_num == 100)
@@ -214,10 +389,24 @@ namespace ego_planner
       fsm_num = 0;
     }
 
+    // 状态机状态处理
     switch (exec_state_)
     {
     case INIT:
     {
+      if(escape_state_msg_.data == true){
+        trigger_ = false;
+        escape_state_msg_.data = false;
+        escape_state_pub_.publish(escape_state_msg_);
+        ROS_INFO("Switching to INIT state and planning to original target.");
+        ros::Duration(1.0).sleep(); // wait for the above message to be sent
+        original_target_pose_.header.stamp = ros::Time::now();
+        original_target_pose_.header.frame_id = "map";
+        original_target_pose_.pose.position.x = end_pt_(0);
+        original_target_pose_.pose.position.y = end_pt_(1);
+        original_target_pose_.pose.position.z = end_pt_(2);
+        self_trig_pub_.publish(original_target_pose_);
+      }
       if (!have_odom_)
       {
         return;
@@ -251,22 +440,27 @@ namespace ego_planner
       // start_yaw_(0)         = atan2(rot_x(1), rot_x(0));
       // start_yaw_(1) = start_yaw_(2) = 0.0;
 
+      // 根据连续调用次数决定是否使用随机多项式初始化
       bool flag_random_poly_init;
       if (timesOfConsecutiveStateCalls().first == 1)
         flag_random_poly_init = false;
-      else
+      else if(timesOfConsecutiveStateCalls().first <= 20)
         flag_random_poly_init = true;
+      else{
+        ROS_ERROR("Too many consecutive calls of GEN_NEW_TRAJ, switching to ESCAPING");
+        changeFSMExecState(ESCAPING, "FSM");
+        break;
+      }
 
       bool success = callReboundReplan(true, flag_random_poly_init);
       if (success)
       {
-
         changeFSMExecState(EXEC_TRAJ, "FSM");
-        flag_escape_emergency_ = true;
+        flag_escape_emergency_ = true; // 允许紧急制动
       }
       else
       {
-        changeFSMExecState(GEN_NEW_TRAJ, "FSM");
+        changeFSMExecState(GEN_NEW_TRAJ, "FSM"); // 路径生成失败则重试
       }
       break;
     }
@@ -274,13 +468,13 @@ namespace ego_planner
     case REPLAN_TRAJ:
     {
 
-      if (planFromCurrentTraj())
+      if (planFromCurrentTraj()) // 从当前轨迹重规划
       {
         changeFSMExecState(EXEC_TRAJ, "FSM");
       }
       else
       {
-        changeFSMExecState(REPLAN_TRAJ, "FSM");
+        changeFSMExecState(REPLAN_TRAJ, "FSM"); // 重规划失败则重试
       }
 
       break;
@@ -294,7 +488,7 @@ namespace ego_planner
       double t_cur = (time_now - info->start_time_).toSec();
       t_cur = min(info->duration_, t_cur);
 
-      Eigen::Vector3d pos = info->position_traj_.evaluateDeBoorT(t_cur);
+      Eigen::Vector3d pos = info->position_traj_.evaluateDeBoorT(t_cur); // 根据当前时间获取当前位置（时间的零点是无人机到达当前轨迹起始点的时间）
 
       /* && (end_pt_ - pos).norm() < 0.5 */
       if (t_cur > info->duration_ - 1e-2)
@@ -304,19 +498,19 @@ namespace ego_planner
         changeFSMExecState(WAIT_TARGET, "FSM");
         return;
       }
-      else if ((end_pt_ - pos).norm() < no_replan_thresh_)
+      else if ((end_pt_ - pos).norm() < no_replan_thresh_) // 接近终点，保持执行轨迹状态
       {
         // cout << "near end" << endl;
         return;
       }
-      else if ((info->start_pos_ - pos).norm() < replan_thresh_)
+      else if ((info->start_pos_ - pos).norm() < replan_thresh_) // 接近起点，保持执行轨迹状态
       {
         // cout << "near start" << endl;
         return;
       }
       else
       {
-        changeFSMExecState(REPLAN_TRAJ, "FSM");
+        changeFSMExecState(REPLAN_TRAJ, "FSM"); // 远离起点和终点，切换到重规划状态
       }
       break;
     }
@@ -326,22 +520,79 @@ namespace ego_planner
 
       if (flag_escape_emergency_) // Avoiding repeated calls
       {
-        callEmergencyStop(odom_pos_);
+        // callEmergencyStop(odom_pos_); // 执行紧急制动
+        // changeFSMExecState(ESCAPING, "FSM");
+        findEscapeTarget(escape_target_);
+        changeFSMExecState(ESCAPING, "FSM");
       }
       else
       {
         if (odom_vel_.norm() < 0.1)
-          changeFSMExecState(GEN_NEW_TRAJ, "FSM");
+          changeFSMExecState(GEN_NEW_TRAJ, "FSM"); // 制动成功后切换至生成新轨迹状态
       }
 
-      flag_escape_emergency_ = false;
+      flag_escape_emergency_ = false; // 重置标志位避免重复调用
+      break;
+    }
+
+    case ESCAPING: {
+      // 检查是否离开膨胀区
+      auto grid_map = planner_manager_->grid_map_;
+      is_in_inflated_zone_ = grid_map->getInflateOccupancy(odom_pos_);
+      /*static int out_of_inflated_zone_time = 0;
+      constexpr int escaping_threshold = 10;
+      if (is_in_inflated_zone_ != 1) { // 已成功逃离膨胀区，正常规划轨迹
+        ++ out_of_inflated_zone_time;
+        if(out_of_inflated_zone_time >= escaping_threshold){
+          ROS_INFO("Successfully escaped inflated zone. Switching to INIT and Planning to original target.");
+          changeFSMExecState(INIT, "FSM");
+          out_of_inflated_zone_time = 0;
+        }
+        else{
+          ROS_INFO("Times out of inflated zone = %d",out_of_inflated_zone_time);
+        }
+      } else { // 仍在膨胀区内，继续执行脱困轨迹和寻找安全点
+        out_of_inflated_zone_time = 0;
+        escape_state_msg_.data = true;
+        escape_state_pub_.publish(escape_state_msg_);
+
+        escape_pose.position.x = escape_target_(0);
+        escape_pose.position.y = escape_target_(1);
+        escape_pose.position.z = escape_target_(2);
+        escape_pose_pub_.publish(escape_pose);
+        ROS_INFO_THROTTLE(1.0, "Escaping to (%.2f, %.2f, %.2f)", escape_pose.position.x, escape_pose.position.y, escape_pose.position.z);
+
+        findEscapeTarget(escape_target_); 
+      }*/
+      double dist = (odom_pos_ - escape_target_).norm();
+      constexpr double threshold = 0.1;
+      if (is_in_inflated_zone_ != 1 ){
+        // if(dist < threshold){
+          ROS_INFO("Successfully escaped inflated zone. Switching to INIT and Planning to original target.");
+          changeFSMExecState(INIT, "FSM");
+        // }
+      }
+      else{
+        escape_state_msg_.data = true;
+        escape_state_pub_.publish(escape_state_msg_);
+
+        escape_pose.header.stamp = ros::Time::now();
+        escape_pose.header.frame_id = "map";
+        escape_pose.pose.position.x = escape_target_(0);
+        escape_pose.pose.position.y = escape_target_(1);
+        escape_pose.pose.position.z = escape_target_(2);
+        escape_pose_pub_.publish(escape_pose);
+        ROS_INFO_THROTTLE(1.0, "Escaping to (%.2f, %.2f, %.2f)", escape_pose.pose.position.x, escape_pose.pose.position.y, escape_pose.pose.position.z);
+
+        // findEscapeTarget(escape_target_);
+      }
       break;
     }
     }
 
     data_disp_.header.stamp = ros::Time::now();
     data_disp_pub_.publish(data_disp_);
-  }
+  }// new-added code
 
   bool EGOReplanFSM::planFromCurrentTraj()
   {

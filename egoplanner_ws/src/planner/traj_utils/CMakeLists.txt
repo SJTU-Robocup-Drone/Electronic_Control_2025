@@ -10,7 +10,6 @@ find_package(catkin REQUIRED COMPONENTS
   path_searching
   roscpp
   std_msgs
-  geometry_msgs
   cv_bridge
 )
 

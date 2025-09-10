@@ -34,7 +34,7 @@ namespace ego_planner
     bspline_optimizer_rebound_->setParam(nh);
     bspline_optimizer_rebound_->setEnvironment(grid_map_);
     bspline_optimizer_rebound_->a_star_.reset(new AStar);
-    bspline_optimizer_rebound_->a_star_->initGridMap(grid_map_, Eigen::Vector3i(100, 100, 100));
+    bspline_optimizer_rebound_->a_star_->initGridMap(grid_map_, Eigen::Vector3i(300, 300, 300)); // 原本是100 100 100
 
     visualization_ = vis;
   }
