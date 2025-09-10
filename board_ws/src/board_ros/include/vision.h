@@ -9,6 +9,8 @@ void process_target_cb();
 void receive_target();
 // 视觉储存入栈函数
 void visionCallback(const geometry_msgs::PoseStamped &msg);
+// 视觉信息回调函数
+void target_cb(const geometry_msgs::PoseStamped::ConstPtr &msg);
 // 计算平均速度函数
 geometry_msgs::Vector3 computeAverageVelocity();
 // 预测下一位置函数
