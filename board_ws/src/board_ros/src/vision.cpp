@@ -50,9 +50,10 @@ std::map<std::string, int> target_types = {
 // 目标坐标存储
 double coordArray[6][2] = {{-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}};
 
-void pose_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
+void pose_cb(const nav_msgs::Odometry::ConstPtr &msg)
 {
-    current_pose = *msg;
+    current_pose.header = msg->header;
+    current_pose.pose = msg -> pose.pose;
     coordX = current_pose.pose.position.x;
     coordY = current_pose.pose.position.y;
     yaw = tf2::getYaw(current_pose.pose.orientation);
@@ -101,9 +102,13 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
     {
         int type = it->second;
 
+        //定义机体系x，y
+        double drone_x = -rel_y;
+        double drone_y = -rel_x;
+
         // 相对坐标转全局坐标（考虑无人机偏航角）
-        double global_x = coordX + rel_x * sin(yaw) - rel_y * cos(yaw);
-        double global_y = coordY - rel_x * cos(yaw) - rel_y * sin(yaw);
+        double global_x = coordX + drone_x * cos(yaw) - drone_y * sin(yaw);
+        double global_y = coordY + drone_x * sin(yaw) + drone_y * cos(yaw);
 
         // 只更新未投掷的目标
         if (coordArray[type][0] != -50)
@@ -112,6 +117,7 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
             coordArray[type][1] = global_y;
 
             ROS_INFO_THROTTLE(2.0, "Find target %s at: (%.2f, %.2f)", target_name.c_str(), global_x, global_y);
+            ROS_INFO_THROTTLE(2.0, "Find target %s relevant at: (%.2f, %.2f)", target_name.c_str(), drone_x, drone_y);
         }
     }
 }
