@@ -50,10 +50,9 @@ std::map<std::string, int> target_types = {
 // 目标坐标存储
 double coordArray[6][2] = {{-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}};
 
-void pose_cb(const nav_msgs::Odometry::ConstPtr &msg)
+void pose_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
 {
-    current_pose.header = msg->header;
-    current_pose.pose = msg -> pose.pose;
+    current_pose = *msg;
     coordX = current_pose.pose.position.x;
     coordY = current_pose.pose.position.y;
     yaw = tf2::getYaw(current_pose.pose.orientation);

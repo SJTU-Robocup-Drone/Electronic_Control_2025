@@ -20,10 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
   # bspline_opt
   # ego_planner
 )
-
-set(EIGEN3_INCLUDE_DIR /usr/include/eigen3)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
-find_package(Eigen3 REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -123,7 +120,7 @@ find_package(Eigen3 REQUIRED)
 
 catkin_package(
   CATKIN_DEPENDS roscpp rospy
-  INCLUDE_DIRS include inc
+  INCLUDE_DIRS include
   # LIBRARIES your_library_name  # 如果有库需要导出
 )
 
@@ -136,8 +133,7 @@ catkin_package(
 include_directories(
   ${EIGEN3_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
-
-  ${CMAKE_CURRENT_SOURCE_DIR}/inc
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 ## Declare a C++ library
@@ -183,27 +179,22 @@ add_executable(offb_node
 link_directories(/home/amov/ego-planner/devel/lib)  # 添加库搜索路径
 target_link_libraries(offb_node
   ${catkin_LIBRARIES}
-  Eigen3::Eigen
   # ego_planner
 )
 target_link_libraries(mid360
   ${catkin_LIBRARIES}
-  Eigen3::Eigen
 )
 target_link_libraries(readfile
   ${catkin_LIBRARIES}
-  Eigen3::Eigen
 )
 target_link_libraries(set_param
   ${catkin_LIBRARIES}
-  Eigen3::Eigen
 )
 target_link_libraries(waypoint_tracking
   ${catkin_LIBRARIES}
 )
 target_link_libraries(control
  ${catkin_LIBRARIES}
- Eigen3::Eigen
 )
 #############
 ## Install ##
