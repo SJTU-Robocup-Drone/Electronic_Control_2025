@@ -77,6 +77,7 @@ namespace ego_planner
 
     /* escaping data */
     int is_in_inflated_zone_; // -1表示未知，0表示无障碍物，1表示有障碍物
+    int odom_cnt;
     bool has_original_target_;
     std_msgs::Bool escape_state_msg_;
     Eigen::Vector3d original_target_;
