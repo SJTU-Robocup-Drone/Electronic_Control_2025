@@ -10,6 +10,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "offb_node");
     ros::NodeHandle nh;
     ros::Rate rate(20);
+    ros::Rate follow_rate(20);
     // 视觉初值
     target_pose.pose.position.z = -1;
 
@@ -95,7 +96,7 @@ int main(int argc, char **argv)
         }
         case FOLLOWING:
         {
-            following(rate);
+            following(follow_rate);
             break;
         }
         case RETURNING:
