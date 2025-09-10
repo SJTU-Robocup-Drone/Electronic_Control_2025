@@ -1,8 +1,6 @@
 #pragma once
 #include "offboard.h"
 
-// 初始化视觉话题/服务函数
-void init_vis_interfaces(ros::NodeHandle &nh);
 // 定时视觉信息存储和刷新函数
 void process_target_cb();
 // 视觉信息最终纠偏与检查函数
