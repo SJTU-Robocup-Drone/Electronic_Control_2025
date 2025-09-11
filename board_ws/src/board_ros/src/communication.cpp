@@ -12,6 +12,7 @@ ros::Publisher return_state_pub;
 ros::Publisher is_done_pub;
 ros::Publisher param_set_pub;
 ros::Publisher manba_pub;
+ros::Publisher target_pub;
 
 ros::Subscriber target_sub;
 ros::Subscriber local_pos_sub;
@@ -28,7 +29,6 @@ ros::ServiceClient arming_client;
 ros::ServiceClient set_mode_client;
 
 ros::Timer process_target_timer;
-
 
 void state_cb(const mavros_msgs::State::ConstPtr &msg)
 {
@@ -85,6 +85,7 @@ void init_nav_interfaces(ros::NodeHandle &nh)
     is_done_pub = nh.advertise<std_msgs::Bool>("/done_state", 10);
     manba_pub = nh.advertise<std_msgs::Int32>("/manba_input", 10);
     vision_state_pub = nh.advertise<std_msgs::Bool>("/vision_state", 10);
+    target_pub = nh.advertise<geometry_msgs::PoseStamped>("/target", 10);
 
     local_pos_sub = nh.subscribe<nav_msgs::Odometry>("/odom_high_freq", 10, pose_cb);
     state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, state_cb);

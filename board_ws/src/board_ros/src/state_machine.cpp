@@ -2,6 +2,7 @@
 #include "function.h"
 #include "state_machine.h"
 #include "vision.h"
+#include "compute.h"
 
 // 定义剩余全局
 MissionState mission_state = TAKEOFF;
@@ -81,7 +82,7 @@ void takeoff(ros::Rate &rate)
             last_request = ros::Time::now();
         }
 
-        set_and_pub_pose(0,0,1.3); // 更容易达到起飞条件
+        set_and_pub_pose(0, 0, 1.3); // 更容易达到起飞条件
 
         if (!is_takeoff)
             takeoff_request = ros::Time::now();
@@ -393,7 +394,8 @@ void bombing(ros::Rate &rate)
 
 void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
 {
-    while(target_index < 3){
+    while (target_index < 3)
+    {
         ROS_INFO("Still have bombs left, dropping now...");
         target_index_msg.data = target_index;
         manba_pub.publish(target_index_msg);
@@ -512,7 +514,7 @@ void following(ros::Rate &rate)
     {
         if (target_pose.pose.position.z != -1)
         { // 找到了靶标，进入靶标跟随状态
-            // ROS_INFO_THROTTLE(2.0, "Target found, keeping following to target.");
+          // ROS_INFO_THROTTLE(2.0, "Target found, keeping following to target.");
         }
         else
         {
@@ -529,7 +531,7 @@ void following(ros::Rate &rate)
 
         // local_vel_pub.publish(vel);
 
-        geometry_msgs::Point p = predictNextPosition(1/30);
+        geometry_msgs::Point p = predictNextPosition(1 / 30);
         set_and_pub_pose(p.x, p.y, current_pose.pose.position.z);
 
         if (distance(current_pose, pose.pose.position) < threshold_distance / 2.0 && ros::ok()) // 记录成功跟上的次数
@@ -602,5 +604,70 @@ void returning(ros::Rate &rate)
             break;
         }
         rate.sleep();
+    }
+}
+
+void detecting(ros::Rate &rate)
+{
+    static board_ros::track::TrackerDropper compute;
+    board_ros::track::Endpoints establishedPoints;
+
+    enum DetectingState
+    {
+        APPROACHING,
+        HIGH_LEARNING,
+        CYCLE_MODELING,
+        PREPARING,
+    } detecting_state = APPROACHING;
+
+    vision_state_msg.data = true; // 开启视觉扫描
+    hovering(3.0, 5, true, rate);
+    ROS_INFO("Start detecting for target line...");
+    // 主循环：每步推进一次状态机
+    while (ros::ok())
+    {
+        rate.sleep();
+        ros::spinOnce();
+        switch (detecting_state)
+        {
+        case APPROACHING:
+        {
+            if (target_pose.pose.position.z != -1)
+            {
+                set_and_pub_pose(target_pose.pose.position.x, target_pose.pose.position.y, 3.0);
+                while (distance(current_pose, pose.pose.position) > threshold_distance)
+                {
+                    ros::spinOnce();
+                    local_pos_pub.publish(pose);
+                    rate.sleep();
+                }
+                detecting_state = HIGH_LEARNING;
+                hovering(3.0, 1, true, rate);
+            }
+            else
+            {
+                hovering(3.0, 5, true, rate);
+                ROS_INFO("No target found, hovering.");
+            }
+            break;
+        }
+        case HIGH_LEARNING:
+        {
+            if (target_pose.pose.position.z != -1) // 接受有效点后放入缓存
+            {
+                compute.feed(target_pose);
+            }
+
+            establishedPoints = compute.endpoints();
+            ROS_INFO("establishedPoints: A(%.2f, %.2f), B(%.2f, %.2f), L=%.2f, valid=%d",
+                     establishedPoints.A.x(), establishedPoints.A.y(),
+                     establishedPoints.B.x(), establishedPoints.B.y(),
+                     establishedPoints.L, establishedPoints.valid);
+
+            board_ros::track::publish_endpoints_posearray(establishedPoints, target_pose);
+            board_ros::track::publish_direction_u(establishedPoints, target_pose);
+            break;
+        }
+        }
     }
 }

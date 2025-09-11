@@ -34,7 +34,8 @@ enum MissionState
     DESCENDING,
     LANDING,
     FOLLOWING,
-    RETURNING
+    RETURNING,
+    DETECTING
 };
 
 // —— 全局对象（用 extern 声明）——
@@ -50,6 +51,7 @@ extern ros::Publisher is_done_pub;
 extern ros::Subscriber target_sub;
 extern ros::Publisher param_set_pub;
 extern ros::Publisher manba_pub;
+extern ros::Publisher target_pub;
 extern ros::Subscriber local_pos_sub;
 extern ros::Subscriber state_sub;
 extern ros::Subscriber nav_check_sub;

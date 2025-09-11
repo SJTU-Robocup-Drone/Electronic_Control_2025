@@ -11,8 +11,10 @@
 
 #include <utility>
 #include <ros/ros.h>
-#include <geometry_msgs/PoseStamped.h>
 #include <Eigen/Dense>
+#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseArray.h>
+#include <geometry_msgs/Vector3Stamped.h>
 
 namespace board_ros
 {
@@ -107,5 +109,56 @@ namespace board_ros
             Impl *impl_;
         };
 
+        // 发布端点：A=poses[0], B=poses[1]
+        inline void publish_endpoints_posearray(const Endpoints &ep,
+                                                const geometry_msgs::PoseStamped &ref_pose,
+                                                const std::string &topic = "/track/endpoints_posearray")
+        {
+            static ros::Publisher pub;
+            static std::string last_topic;
+            static bool inited = false;
+            if (!inited || topic != last_topic)
+            {
+                ros::NodeHandle nh;
+                pub = nh.advertise<geometry_msgs::PoseArray>(topic, 1, /*latch=*/true);
+                last_topic = topic;
+                inited = true;
+            }
+
+            geometry_msgs::PoseArray pa;
+            pa.header = ref_pose.header; // 带上 frame_id 和时间
+            pa.poses.resize(2);
+            pa.poses[0].position.x = ep.A.x();
+            pa.poses[0].position.y = ep.A.y();
+            pa.poses[1].position.x = ep.B.x();
+            pa.poses[1].position.y = ep.B.y();
+            pub.publish(pa);
+        }
+
+        // 发布方向：单位向量 u（A->B）
+        inline void publish_direction_u(const Endpoints &ep,
+                                        const geometry_msgs::PoseStamped &ref_pose,
+                                        const std::string &topic = "/track/endpoints_dir")
+        {
+            static ros::Publisher pub;
+            static std::string last_topic;
+            static bool inited = false;
+            if (!inited || topic != last_topic)
+            {
+                ros::NodeHandle nh;
+                pub = nh.advertise<geometry_msgs::Vector3Stamped>(topic, 1, /*latch=*/true);
+                last_topic = topic;
+                inited = true;
+            }
+
+            geometry_msgs::Vector3Stamped vs;
+            vs.header = ref_pose.header;
+            vs.vector.x = ep.u.x();
+            vs.vector.y = ep.u.y();
+            vs.vector.z = 0.0;
+            pub.publish(vs);
+        }
+
     }
 } // namespace board_ros::track
+
