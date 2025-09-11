@@ -53,7 +53,7 @@ int main(int argc, char **argv)
             takeoff(rate);
             break;
         }
-        case OVERLOOKING:m
+        case OVERLOOKING:
         {
             overlooking(rate);
             break;
