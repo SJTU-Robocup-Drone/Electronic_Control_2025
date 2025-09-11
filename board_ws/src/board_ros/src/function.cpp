@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <queue>
 #include <geometry_msgs/Point.h>
 
 geometry_msgs::Point createPoint(double x, double y, double z) {
@@ -16,6 +17,7 @@ geometry_msgs::Point createPoint(double x, double y, double z) {
 // 定义点集（会在全局范围内用到）
 std::vector<geometry_msgs::Point> searching_points;
 std::vector<geometry_msgs::Point> obstacle_zone_points;
+std::queue<geometry_msgs::Point> retry_points;
 
 void hovering(float z, float time, bool if_exit, ros::Rate &rate)
 {

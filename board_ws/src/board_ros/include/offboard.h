@@ -108,6 +108,10 @@ extern int searching_index;
 extern std::vector<geometry_msgs::Point> obstacle_zone_points;
 extern int obstacle_zone_index;
 
+extern std::queue<geometry_msgs::Point> retry_points;
+
+
+
 // 视觉历史缓冲
 struct TimedPose
 {

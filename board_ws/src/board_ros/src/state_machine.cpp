@@ -159,17 +159,31 @@ void overlooking(ros::Rate &rate)
 
 void searching(ros::Rate &rate)
 {
+    bool isRetrying = false;// 表示这一次searching是不是在重试之前卡住的点
     if (!is_stuck)
-    { // 正常导航时，跳过放弃的点向前导航
-        while (searching_points[searching_index].z == -1)
+    { // 上一次没有被卡住
+        if(retry_points.size() > 0){ // 存在需要重试的点
+            geometry_msgs::Point retry_point = retry_points.front();
+            retry_points.pop();
+            // TODO：把发布的导航点设为retry_point，而非searching_points[searching_index]
+            isRetrying = true;
+        }
+        else{
+            while (searching_points[searching_index].z == -1)
             searching_index++;
+        }    
     }
     else
-    { // 不正常导航，即ego-planner卡住时，跳过放弃的点向后导航，同时重置标志位并记忆该信息
+    { // 上一次被卡住了，这一次先不去重试上一次的点
+        /*旧版本——往回走
         while (searching_points[searching_index].z == -1)
             searching_index--;
         is_stuck = false;
         is_once_stuck = true;
+        */
+       // 新版本——继续往前检索
+       while (searching_points[searching_index].z == -1)
+            searching_index++;
     }
 
     // 如果所有搜索点都已访问或ego-planner卡得索引降至零以下了，为了防止下标越界直接返航
@@ -193,11 +207,21 @@ void searching(ros::Rate &rate)
     ROS_INFO("Hovering before navigating...");
     hovering(0.9, 5.0, false, rate);
 
-    // 发布航点,更新导航时间
-    set_and_pub_nav(searching_points[searching_index].x, searching_points[searching_index].y, searching_points[searching_index].z);
+    if(!isRetrying){// 导航前往新的点
+        // 发布航点,更新导航时间
+        set_and_pub_nav(searching_points[searching_index].x, searching_points[searching_index].y, searching_points[searching_index].z);
 
-    // 轨迹跟踪与检查
-    ROS_INFO("Searching for target %d...", searching_index + 1);
+        // 轨迹跟踪与检查
+        ROS_INFO("Searching for target %d...", searching_index + 1);
+    }
+    else{// 导航前往重试点
+        // 发布航点,更新导航时间
+        set_and_pub_nav(retry_point.x, retry_point.y, retry_point.z);
+
+        // 轨迹跟踪与检查
+        ROS_INFO("Searching for a retrying point...");
+    }
+   
     while (ros::ok())
     {
         ros::spinOnce();
@@ -205,6 +229,7 @@ void searching(ros::Rate &rate)
         { // 如果ego-planner卡住了，放弃当前搜索点，同时暂时关闭导航
             ROS_WARN("Ego-planner is stuck. Trying navigating to last searching point and aborting current searching point...");
             searching_points[searching_index].z = -1;
+            retry_points.push(searching_points[searching_index]);// 存入重试队列
             nav_state_msg.data = false;
             nav_state_pub.publish(nav_state_msg);
             break;
