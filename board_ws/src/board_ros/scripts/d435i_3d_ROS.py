@@ -8,7 +8,6 @@ import numpy as np
 import pyrealsense2 as rs
 import time
 import threading
-import cv2
 from nav_msgs.msg import Odometry
 from utils.augmentations import letterbox
 from utils.general import non_max_suppression
@@ -27,21 +26,13 @@ items = [
     ["Helicopter", 0, []], ["tank", 0, []], ["tent", 0, []]
 ]
 
-# 相机内参矩阵 - 需要根据实际相机进行标定
-camera_matrix = np.array([
-    [323.6085, 0, 334.7889],      # fx, 0, cx    fx,fy为焦距
-    [0, 323.6085, 230.5474],      # 0, fy, cy    cx,cy为光心  需校准
-    [0, 0, 1.0]             # 0, 0, 1
-], dtype=np.float32)    # 这里指定数据类型为32位浮点数
-
-
 # 坐标发布器
 detection_pub = None
 odom_pos = None
 
 def check_queue(items, class_id, confidence, x, y, z):
     item = items[class_id]
-    if confidence > 0.7:    #模型默认剔除置信度低于0.7的目标框，此处可再升高
+    if confidence > 0.5:
         if item[1] < 20:
             item[1] += 1
             item[2].append([x, y, z])
@@ -57,10 +48,6 @@ def check_queue(items, class_id, confidence, x, y, z):
         x_avg, y_avg, z_avg = 0, 0, 0
     return x_avg, y_avg, z_avg
 
-# 坐标缩放函数（YOLO输出 → 原图尺寸）
-#对于输入给Yolov5处理的图像，Yolov5会预处理成640×640（默认，可更改）的图像，进行目标检测后输出
-#该函数将输出的检测框坐标映射回符合原图像尺寸的坐标
-#img1_shape:输出图尺寸  img0_shape：原图尺寸
 def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
     if ratio_pad is None:
         gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])
@@ -88,23 +75,16 @@ def detect_targets():
     names = model.names if hasattr(model, 'names') else {i: f'class_{i}' for i in range(100)}
     rospy.loginfo("[INFO] 模型加载完成。")
 
-    # # 初始化 RealSense 相机
-    # pipeline = rs.pipeline()
-    # config = rs.config()
-    # config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-    # config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-    # profile = pipeline.start(config)
-    # depth_sensor = profile.get_device().first_depth_sensor()
-    # depth_scale = depth_sensor.get_depth_scale()
-    # color_intrinsics = profile.get_stream(rs.stream.color).as_video_stream_profile().get_intrinsics()
-    # align = rs.align(rs.stream.color)
-
-
-    cap = cv2.VideoCapture(0)  # 打开默认摄像头
-    if not cap.isOpened():
-        rospy.logerr("无法打开摄像头")
-        exit()
-    print("[INFO] 摄像头已打开。")
+    # 初始化 RealSense 相机
+    pipeline = rs.pipeline()
+    config = rs.config()
+    config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+    config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+    profile = pipeline.start(config)
+    depth_sensor = profile.get_device().first_depth_sensor()
+    depth_scale = depth_sensor.get_depth_scale()
+    color_intrinsics = profile.get_stream(rs.stream.color).as_video_stream_profile().get_intrinsics()
+    align = rs.align(rs.stream.color)
 
     frame_count = 0
     try:
@@ -112,47 +92,43 @@ def detect_targets():
             start_time = time.time()
             frame_count += 1
             
+            rospy.loginfo(f"[INFO] 处理第 {frame_count} 帧")
 
-            ret, frames = cap.read()
-            if not ret:
-                print("无法读取帧")
-                break
-
+            frames = pipeline.wait_for_frames()
             
-            # color_image = np.asanyarray(cv2.cvtColor(frames, cv2.COLOR_BGR2RGB))#转换为numpy数组
-            color_image = np.asanyarray(frames)#转换为numpy数组
+            rospy.loginfo("[INFO] 获取到新帧。")
+            aligned_frames = align.process(frames)
+            color_frame = aligned_frames.get_color_frame()
+            depth_frame = aligned_frames.get_depth_frame()
+            if not color_frame or not depth_frame:
+                continue
 
-            # 图像预处理
+            color_image = np.asanyarray(color_frame.get_data())
+            depth_image = np.asanyarray(depth_frame.get_data())
+
             img_letterboxed = letterbox(color_image, new_shape=640)[0]
             img = img_letterboxed[:, :, ::-1].transpose(2, 0, 1)
             img = np.ascontiguousarray(img)
             img = torch.from_numpy(img).to(device).half() / 255.0
             img = img.unsqueeze(0)
 
+            rospy.loginfo("[INFO] 运行推理...")
+
             with torch.no_grad():
                 pred = model(img, augment=False)[0]
                 pred = non_max_suppression(pred, conf_thres=0.25, iou_thres=0.45)[0]
 
+            rospy.loginfo("[INFO] 推理完成。")
             if pred is not None and len(pred):
                 pred[:, :4] = scale_coords(img.shape[2:], pred[:, :4], color_image.shape).round()
                 for *xyxy, conf, cls in pred:
                     xmin, ymin, xmax, ymax = map(int, xyxy)
-                    
-                    #检测框中心像素坐标
-                    x_found= (xmin + xmax) // 2
-                    y_found= (ymin + ymax) // 2
+                    cx = (xmin + xmax) // 2
+                    cy = (ymin + ymax) // 2
 
-                    camera_height = odom_pos.z + 0.16 if odom_pos else 0
-
-                    fx = camera_matrix[0, 0]  # x方向焦距
-                    fy = camera_matrix[1, 1]  # y方向焦距
-                    cx = camera_matrix[0, 2]  # 主点x坐标
-                    cy = camera_matrix[1, 2]  # 主点y坐标
-
-                    x = (x_found - cx) / fx * camera_height
-                    y = (y_found - cy) / fy * camera_height
-                    z = camera_height  
-
+                    depth_value = odom_pos.z + 0.16 if odom_pos else 0
+                    point_3d = rs.rs2_deproject_pixel_to_point(color_intrinsics, [cx, cy], depth_value)
+                    x, y, z = point_3d
                     class_id = int(cls)
                     x, y, z = check_queue(items, class_id, float(conf), x, y, z)
 
@@ -168,13 +144,14 @@ def detect_targets():
                         
                         rospy.loginfo(f"检测到: {names[class_id]}, 坐标: X={x:.2f}, Y={y:.2f}, Z={z:.2f}, 置信度: {conf:.2f}")
 
-            
+            total_time = time.time() - start_time
+            if total_time < 1 / 30:
+                time.sleep(1 / 30 - total_time)
 
     except Exception as e:
         rospy.logerr(f"检测过程中出现错误: {e}")
     finally:
-        cv2.destroyAllWindows()
-        cap.release()
+        pipeline.stop()
         rospy.loginfo("[INFO] 已安全退出检测线程。")
 
 def vision_state_callback(msg):
@@ -204,10 +181,12 @@ if __name__ == "__main__":
     # 创建发布器
     detection_pub = rospy.Publisher("/detection_results", PointStamped, queue_size=10)
     
+    
     rospy.Subscriber("/vision_state", Bool, vision_state_callback)
     rospy.Subscriber("/odom_high_freq", Odometry, odom_callback)
     rospy.loginfo("[INFO] 视觉节点已启动，等待/vision_state指令...")
 
+ 
     try:
         rospy.spin()
     except rospy.ROSInterruptException:
