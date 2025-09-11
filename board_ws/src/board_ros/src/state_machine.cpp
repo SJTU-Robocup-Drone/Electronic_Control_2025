@@ -160,6 +160,11 @@ void overlooking(ros::Rate &rate)
 
 void searching(ros::Rate &rate)
 {
+    // 如果有弹可投，直接投弹
+    if (target_pose.pose.position.z != -1){
+        mission_state = BOMB_NAVIGATING;
+        return;
+    }
     bool isRetrying = false;// 表示这一次searching是不是在重试之前卡住的点
     geometry_msgs::Point retry_point;
     if (!is_stuck)
@@ -180,7 +185,7 @@ void searching(ros::Rate &rate)
         while (searching_points[searching_index].z == -1)
             searching_index--;
         is_stuck = false;
-        is_once_stuck = true；
+        is_once_stuck = true;
     }
 
     // 如果所有搜索点都已访问或ego-planner卡得索引降至零以下了，为了防止下标越界直接切状态
@@ -256,8 +261,8 @@ void searching(ros::Rate &rate)
 
 void bomb_navigating(ros::Rate &rate)
 {
-    ROS_INFO("Hovering before navigating...");
-    hovering(0.9, 5, false, rate);
+    // ROS_INFO("Hovering before navigating...");
+    // hovering(0.9, 5, false, rate);
 
     // 发布航点并更新导航时间,初始化第一个和上一个靶标点
     set_and_pub_nav(target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
@@ -307,7 +312,7 @@ void adjusting(ros::Rate &rate)
     vision_state_msg.data = true; // 开启视觉扫描
     adjust_has_target = false;
     ROS_INFO("2nd time of visual scanning...");
-    hovering(1, 5, true, rate);
+    hovering(1, 10, true, rate);
     vision_state_msg.data = false; // 关闭视觉扫描
 
     pose.header.frame_id = "map";
@@ -330,8 +335,10 @@ void adjusting(ros::Rate &rate)
         set_and_pub_pose(target_pose.pose.position.x, target_pose.pose.position.y, current_pose.pose.position.z);
     }
     ROS_INFO("Adjusting position to target...");
-    while (distance(current_pose, pose.pose.position) > threshold_distance && ros::ok())
-    { // 临时减小距离阈值
+    // 临时减小距离阈值，并预先调整姿态
+    pose.pose.orientation = initial_pose.pose.orientation;
+    while (distance(current_pose, pose.pose.position) > threshold_distance/2.0 && ros::ok())
+    {
         ros::spinOnce();
         pose.header.stamp = ros::Time::now();
         vision_state_pub.publish(vision_state_msg);
@@ -353,17 +360,17 @@ void bombing(ros::Rate &rate)
     // pose.pose.position.x = current_pose.pose.position.x;
     // pose.pose.position.y = current_pose.pose.position.y;
     pose.pose.position.z = 0.2;
-    pose.pose.orientation = initial_pose.pose.orientation;
-    while (ros::ok() && distance(current_pose, pose.pose.position) > threshold_distance / 2.0)
+    // 边下降边投弹
+    while (ros::ok() && current_pose.pose.position.z >= 0.3)
     {
         ros::spinOnce();
         local_pos_pub.publish(pose);
+        target_index_msg.data = target_index;
+        manba_pub.publish(target_index_msg);
         rate.sleep();
     }
 
-    // 到点后悬停0.5秒并投弹，然后索引自增
-    target_index_msg.data = target_index;
-    manba_pub.publish(target_index_msg);
+    // 到点后悬停0.5秒,然后索引自增
     hovering(0.2, 0.5, false, rate);
     target_pose.pose.position.z = -1; // 防止视觉节点没有来得及发布新目标点或发布未找到目标点的消息导致重复导航和投弹
 
@@ -382,10 +389,8 @@ void bombing(ros::Rate &rate)
 
     if (++target_index >= 3)
         mission_state = OBSTACLE_AVOIDING;
-    // else if(target_pose.pose.position.z == -1) mission_state = SEARCHING;
-    // else mission_state = BOMB_NAVIGATING;
-    else
-        mission_state = SEARCHING;
+    else if(target_pose.pose.position.z != -1) mission_state = BOMB_NAVIGATING;
+    else mission_state = SEARCHING;
 }
 
 void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
@@ -438,7 +443,7 @@ void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
                 return_state_msg.data = true;
                 return_state_pub.publish(return_state_msg);
                 is_return = true;
-                mission_state = DESCENDING;
+                mission_state = ADJUSTING;
             }
             nav_state_msg.data = false;
             nav_state_pub.publish(nav_state_msg);
