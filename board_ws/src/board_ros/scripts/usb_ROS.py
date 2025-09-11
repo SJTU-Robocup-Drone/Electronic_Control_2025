@@ -82,7 +82,7 @@ def detect_targets():
     global detection_pub, odom_pos
 
     # 初始化 YOLO 模型
-    model_path = '/home/amov/board_ws/src/board_ros/scripts/best_0801.pt'
+    model_path = '/home/amov/board_ws/src/board_ros/scripts/best_0909.pt'
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     rospy.loginfo("[INFO] 加载模型中...")
     model = torch.load(model_path, map_location=device)['model'].float()

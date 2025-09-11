@@ -390,6 +390,53 @@ namespace board_ros
                     cycler.feed(ps);
             }
 
+            void feed(const geometry_msgs::PoseStamped &ps)
+            {
+                learner.feed(ps);
+
+                // 始终尝试重算（满足点数等条件时）
+                bool ok = learner.compute();
+
+                if (!model_ready)
+                {
+                    if (ok)
+                    {
+                        ep = learner.ep;
+                        model_ready = ep.valid;
+                        if (model_ready)
+                            cycler.reset(ep);
+                    }
+                }
+                else
+                {
+                    if (ok && learner.ep.valid)
+                    {
+                        // 判断是否需要刷新端点：位置或方向变化超过阈值
+                        const double eps_pos = 0.03; // 3cm
+                        const double eps_dir = 0.02; // 方向变化阈值（弧度≈~1.1°）
+                        bool shift_big = ((ep.A - learner.ep.A).norm() > eps_pos) ||
+                                         ((ep.B - learner.ep.B).norm() > eps_pos);
+                        double cosang = std::max(-1.0, std::min(1.0, ep.u.dot(learner.ep.u)));
+                        bool rot_big = std::acos(cosang) > eps_dir;
+
+                        if (shift_big || rot_big)
+                        {
+                            ep = learner.ep;
+                            // 简单做法：重置节拍（最稳妥，代价是丢历史）
+                            cycler.reset(ep);
+
+                            // 也可以更高级地“重绑定”，见下方可选方案
+                        }
+                    }
+                }
+
+                if (model_ready)
+                {
+                    cycler.feed(ps);
+                }
+            }
+
+            
             bool predictPassTimes(ros::Time now, ros::Time &tA, ros::Time &tB) const
             {
                 if (!model_ready || !ep.valid)

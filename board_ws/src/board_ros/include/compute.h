@@ -32,8 +32,8 @@ namespace board_ros
 
         struct LearnParams
         {
-            double learn_window_sec = 8.0;   // 学习时间窗（秒）
-            std::size_t min_points = 30;     // 拟合所需最少点数
+            double learn_window_sec = 30.0;  // 学习时间窗（秒）
+            std::size_t min_points = 150;    // 拟合所需最少点数
             int ransac_iters = 300;          // RANSAC 迭代次数
             double inlier_thresh_m = 0.08;   // 内点判定阈值（m）
             double refine_trim_ratio = 0.15; // 精修前丢掉最差多少比例的点
@@ -161,4 +161,3 @@ namespace board_ros
 
     }
 } // namespace board_ros::track
-
