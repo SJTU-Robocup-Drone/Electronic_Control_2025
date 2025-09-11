@@ -83,11 +83,21 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
         double global_x = coordX + global.x();
         double global_y = coordY + global.y();
 
+        if (type == 4)
+        {
+            target_pose.header.frame_id = "map";
+            target_pose.pose.position.x = global_x;
+            target_pose.pose.position.y = global_y;
+            target_pose.pose.position.z = 1.0; // 固定高度1米
+            target_pub.publish(target_pose);
+        }
+
         // 只更新未投掷的目标
         if (coordArray[type][0] != -50)
         {
             coordArray[type][0] = global_x;
             coordArray[type][1] = global_y;
+            ROS_INFO("Drone YPR:(%.2F,%.2f,%.2f)", yaw, pitch, roll);
             ROS_INFO("Refreshing target %s, relative coord: (%.2f, %.2f),at %f", target_name.c_str(), global_x, global_y, target_pose.header.stamp.toSec());
             ROS_INFO("Relevant target at : (%.2f, %.2f) ", drone_x, drone_y);
             ROS_INFO("x=%.2f", current_pose.pose.position.x);

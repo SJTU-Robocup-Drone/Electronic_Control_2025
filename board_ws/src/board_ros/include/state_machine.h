@@ -14,3 +14,4 @@ void descending(ros::Rate& rate);
 void landing(ros::Rate &rate);
 void following(ros::Rate &rate);
 void returning(ros::Rate& rate);
+void detecting(ros::Rate& rate);
