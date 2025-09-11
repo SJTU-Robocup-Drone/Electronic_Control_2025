@@ -66,6 +66,9 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
     {
         int type = it->second;
 
+        // 更新当前目标索引
+        target_index = type;
+
         // 定义机体系x，y
         double drone_x = -rel_y;
         double drone_y = -rel_x;
@@ -132,7 +135,6 @@ void process_target_cb()
                 target_pose.pose.position.y = coordArray[i][1];
                 if(i != 0 || is_done) target_pose.pose.position.z = 1.0;
 
-                current_index = i;
                 break;
             }
         }
@@ -140,7 +142,6 @@ void process_target_cb()
 
     if (!is_found)
     {
-        target_pose.header.frame_id = "map";
         target_pose.pose.position.z = -1;
         is_found = false;
     }
