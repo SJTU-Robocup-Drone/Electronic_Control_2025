@@ -379,20 +379,6 @@ namespace board_ros
             void feed(const geometry_msgs::PoseStamped &ps)
             {
                 learner.feed(ps);
-                if (!model_ready && learner.compute())
-                {
-                    ep = learner.ep;
-                    model_ready = ep.valid;
-                    if (model_ready)
-                        cycler.reset(ep);
-                }
-                if (model_ready)
-                    cycler.feed(ps);
-            }
-
-            void feed(const geometry_msgs::PoseStamped &ps)
-            {
-                learner.feed(ps);
 
                 // 始终尝试重算（满足点数等条件时）
                 bool ok = learner.compute();
@@ -436,7 +422,7 @@ namespace board_ros
                 }
             }
 
-            
+
             bool predictPassTimes(ros::Time now, ros::Time &tA, ros::Time &tB) const
             {
                 if (!model_ready || !ep.valid)
