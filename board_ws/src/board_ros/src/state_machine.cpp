@@ -355,18 +355,26 @@ void bombing(ros::Rate &rate)
 {
     ROS_INFO("Start bombing...");
     // 先下降到较低高度，并调整姿态后再投弹
-    pose.header.frame_id = "map";
-    pose.header.stamp = ros::Time::now();
     // pose.pose.position.x = current_pose.pose.position.x;
     // pose.pose.position.y = current_pose.pose.position.y;
-    pose.pose.position.z = 0.2;
+    pose.pose.position.z = 0.2; // 实际上没用
+    vel.linear.x = 0.0;
+    vel.linear.y = 0.0;
+    vel.linear.z = -2.0;
     // 边下降边投弹
-    while (ros::ok() && current_pose.pose.position.z >= 0.3)
+    bool isBombed = false;
+    while (ros::ok() && current_pose.pose.position.z >= 0.25)
     {
         ros::spinOnce();
-        local_pos_pub.publish(pose);
-        target_index_msg.data = target_index;
-        manba_pub.publish(target_index_msg);
+        // local_pos_pub.publish(pose);
+        local_vel_pub.publish(vel);
+        if(current_pose.pose.position.z <= 0.5 && !isBombed)
+        {
+            ROS_INFO("Releasing bomb %d...", target_index + 1);
+            target_index_msg.data = target_index;
+            manba_pub.publish(target_index_msg);
+            isBombed = true;
+        }
         rate.sleep();
     }
 
@@ -375,7 +383,7 @@ void bombing(ros::Rate &rate)
     target_pose.pose.position.z = -1; // 防止视觉节点没有来得及发布新目标点或发布未找到目标点的消息导致重复导航和投弹
 
     ROS_INFO("Bombing %d done, rising to normal flight height.", target_index + 1);
-    pose.pose.position.z = 1.0;
+    pose.pose.position.z = 1.0; // 实际上没用
     // 速度控制较低速上升，防止吹跑已经投放好的弹
     vel.linear.x = 0.0;
     vel.linear.y = 0.0;
