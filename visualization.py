@@ -159,7 +159,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--endpoints", type=str, default="/track/endpoints_posearray")
     parser.add_argument("--udir", type=str, default="/track/endpoints_dir")
-    parser.add_argument("--target", type=str, default="/target_pose")
+    parser.add_argument("--target", type=str, default="/target")
     parser.add_argument("--window", type=float, default=8.0)
     parser.add_argument("--rate", type=float, default=15.0)
     args = parser.parse_args()

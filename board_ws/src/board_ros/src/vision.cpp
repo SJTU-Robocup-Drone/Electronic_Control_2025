@@ -86,6 +86,7 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
         if (type == 4)
         {
             target_pose.header.frame_id = "map";
+            target_pose.header.stamp = ros::Time::now();
             target_pose.pose.position.x = global_x;
             target_pose.pose.position.y = global_y;
             target_pose.pose.position.z = 1.0; // 固定高度1米

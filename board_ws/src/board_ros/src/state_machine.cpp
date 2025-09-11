@@ -369,7 +369,8 @@ void bombing(ros::Rate &rate)
 
 void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
 {
-    while(target_index < 3){
+    while (target_index < 3)
+    {
         ROS_INFO("Still have bombs left, dropping now...");
         target_index_msg.data = target_index;
         manba_pub.publish(target_index_msg);
@@ -616,6 +617,7 @@ void detecting(ros::Rate &rate)
                     rate.sleep();
                 }
                 detecting_state = HIGH_LEARNING;
+                hovering(3.0, 1, true, rate);
             }
             else
             {
@@ -630,10 +632,12 @@ void detecting(ros::Rate &rate)
             {
                 compute.feed(target_pose);
             }
-            if (compute.hasModel())
-            {
-                establishedPoints = compute.endpoints();
-            }
+
+            establishedPoints = compute.endpoints();
+            ROS_INFO("establishedPoints: A(%.2f, %.2f), B(%.2f, %.2f), L=%.2f, valid=%d",
+                     establishedPoints.A.x(), establishedPoints.A.y(),
+                     establishedPoints.B.x(), establishedPoints.B.y(),
+                     establishedPoints.L, establishedPoints.valid);
 
             board_ros::track::publish_endpoints_posearray(establishedPoints, target_pose);
             board_ros::track::publish_direction_u(establishedPoints, target_pose);
