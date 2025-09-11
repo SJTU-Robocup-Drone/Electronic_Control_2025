@@ -177,18 +177,13 @@ void searching(ros::Rate &rate)
     }
     else
     { // 上一次被卡住了，这一次先不去重试上一次的点
-        /*旧版本——往回走
         while (searching_points[searching_index].z == -1)
             searching_index--;
         is_stuck = false;
-        is_once_stuck = true;
-        */
-       // 新版本——继续往前检索
-       while (searching_points[searching_index].z == -1)
-            searching_index++;
+        is_once_stuck = true；
     }
 
-    // 如果所有搜索点都已访问或ego-planner卡得索引降至零以下了，为了防止下标越界直接返航
+    // 如果所有搜索点都已访问或ego-planner卡得索引降至零以下了，为了防止下标越界直接切状态
     if (searching_index >= searching_points.size() || searching_index < 0)
     {
         is_done_msg.data = true;
