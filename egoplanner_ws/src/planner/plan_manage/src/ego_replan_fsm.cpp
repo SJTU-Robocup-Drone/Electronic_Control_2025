@@ -541,7 +541,7 @@ namespace ego_planner
       }
       else
       {
-        if (odom_vel_.norm() < 0.1)
+        if (odom_vel_.norm() < 0.2)
           changeFSMExecState(GEN_NEW_TRAJ, "FSM"); // 制动成功后切换至生成新轨迹状态
       }
 

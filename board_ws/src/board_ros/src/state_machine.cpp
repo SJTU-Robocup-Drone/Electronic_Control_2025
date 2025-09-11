@@ -48,7 +48,7 @@ bool is_takeoff = false;
 bool is_moving_target = false;
 bool is_param_set = false;
 
-double offset[3][2] = {{0, 0.18}, {0.18, 0}, {0, -0.18}};
+double offset[3][2] = {{0, 0.16}, {0.16, 0}, {0, -0.16}};
 
 const double threshold_distance = 0.1;
 
@@ -368,6 +368,13 @@ void bombing(ros::Rate &rate)
 
 void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
 {
+    while(target_index < 3){
+        ROS_INFO("Still have bombs left, dropping now...");
+        target_index_msg.data = target_index;
+        manba_pub.publish(target_index_msg);
+        hovering(1.0, 0.5, false, rate);
+        target_index++;
+    }
     if (!is_param_set && obstacle_zone_index >= 1)
     {
         is_param_set = true;
@@ -379,19 +386,19 @@ void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
         nh.setParam("optimization/lambda_fitness", 120);
         nh.setParam("optimization/dist0", 0.28);
         param_set_msg.data = true;
-        param_set_pub.publish(param_set_msg);
+        // param_set_pub.publish(param_set_msg);
     }
 
     ROS_INFO("Hovering before navigating...");
-    hovering(0.7, 5, false, rate);
+    hovering(0.9, 5, false, rate);
     // 发布航点，更新导航时间
     if (obstacle_zone_index < obstacle_zone_points.size())
     {
         set_and_pub_nav(obstacle_zone_points[obstacle_zone_index].x, obstacle_zone_points[obstacle_zone_index].y, obstacle_zone_points[obstacle_zone_index].z);
     }
 
-    ROS_INFO("EGO thinking...");
-    hovering(0.7, 3, false, rate);
+    // ROS_INFO("EGO thinking...");
+    // hovering(0.7, 3, false, rate);
 
     // 轨迹跟踪与检查
     while (ros::ok())

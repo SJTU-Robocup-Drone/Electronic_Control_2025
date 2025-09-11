@@ -63,8 +63,9 @@ namespace ego_planner
     cout.precision(3);
     cout << "start: " << start_pt.transpose() << ", " << start_vel.transpose() << "\ngoal:" << local_target_pt.transpose() << ", " << local_target_vel.transpose()
          << endl;
+    start_vel(2) = 0;
 
-    if ((start_pt - local_target_pt).norm() < 0.2)
+    if ((start_pt - local_target_pt).norm() < 0.1)
     {
       cout << "Close to goal" << endl;
       continous_failures_count_++;
