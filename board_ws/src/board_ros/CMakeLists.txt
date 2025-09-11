@@ -162,6 +162,7 @@ add_executable(offb_node
   src/communication.cpp
   src/state_machine.cpp
   src/function.cpp
+  src/compute.cpp
 )
 
 ## Rename C++ executable without prefix
