@@ -21,6 +21,7 @@ namespace ego_planner
     escape_pose_pub_ = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 50);
     escape_state_pub_ = nh.advertise<std_msgs::Bool>("/escape_state", 10);
     self_trig_pub_ = nh.advertise<geometry_msgs::PoseStamped>("/control/move_base_simple/goal", 10);
+    adjusted_goal_pub = nh.advertise<geometry_msgs::PoseStamped>("/adjusted_goal", 10);
 
     /*  fsm param  */
     nh.param("fsm/flight_type", target_type_, -1);
@@ -185,6 +186,14 @@ namespace ego_planner
       // finding a new target
       if (adjustTarget(end_pt_)) {
         ROS_INFO("Find a safe goal. ");
+
+        geometry_msgs::PoseStamped adjusted_goal_msg;
+        adjusted_goal_msg.header.stamp = ros::Time::now();
+        adjusted_goal_msg.header.frame_id = "map";
+        adjusted_goal_msg.pose.position.x = end_pt_(0);
+        adjusted_goal_msg.pose.position.y = end_pt_(1);
+        adjusted_goal_msg.pose.position.z = end_pt_(2);
+        adjusted_goal_pub.publish(adjusted_goal_msg);
       } else {
         ROS_ERROR("Failed to find safe goal! Attempting original goal.");
       }
@@ -263,9 +272,17 @@ namespace ego_planner
           Eigen::Vector3i candidate_idx = current_idx + Eigen::Vector3i(x, y, 0);
           Eigen::Vector3d candidate_pos;
           grid_map->indexToPos(candidate_idx,candidate_pos);
+          Eigen::Vector3d candidate_pos_left = candidate_pos - Eigen::Vector3d(0.1,0,0);
+          Eigen::Vector3d candidate_pos_right = candidate_pos + Eigen::Vector3d(0.1,0,0);
+          Eigen::Vector3d candidate_pos_front = candidate_pos + Eigen::Vector3d(0,0.1,0);
+          Eigen::Vector3d candidate_pos_back = candidate_pos - Eigen::Vector3d(0,0.1,0);
         
-          // 检查是否安全且不在膨胀区内
-          if (!grid_map->getInflateOccupancy(candidate_pos)) {
+          // 检查是否安全且不在膨胀区内(包括周围四个点)
+          if (!grid_map->getInflateOccupancy(candidate_pos)
+              && !grid_map->getInflateOccupancy(candidate_pos_left)
+              && !grid_map->getInflateOccupancy(candidate_pos_right)
+              && !grid_map->getInflateOccupancy(candidate_pos_front)
+              && !grid_map->getInflateOccupancy(candidate_pos_back)) {
             Eigen::Vector3i escape_idx = current_idx + Eigen::Vector3i(x,y,0);
             grid_map->indexToPos(escape_idx, escape_target);
             escape_target_(2) = 1.0;
@@ -317,8 +334,15 @@ namespace ego_planner
     constexpr double step = 0.1;
     for(int i = 1; i <= 10; ++i){
       Eigen::Vector3d candidate_pos = target + direction * i * step;
-      int candidate_in_inflated_zone = grid_map->getInflateOccupancy(candidate_pos);
-      ROS_INFO("getInflateOccupancy of candidate %d (%.2f, %.2f, %.2f) = %d", i, candidate_pos(0), candidate_pos(1), candidate_pos(2), candidate_in_inflated_zone);
+      Eigen::Vector3d candidate_pos_left = candidate_pos - Eigen::Vector3d(0.1,0,0);
+      Eigen::Vector3d candidate_pos_right = candidate_pos + Eigen::Vector3d(0.1,0,0);
+      Eigen::Vector3d candidate_pos_front = candidate_pos + Eigen::Vector3d(0,0.1,0);
+      Eigen::Vector3d candidate_pos_back = candidate_pos - Eigen::Vector3d(0,0.1,0);
+      bool candidate_in_inflated_zone = grid_map->getInflateOccupancy(candidate_pos)
+                                        || grid_map->getInflateOccupancy(candidate_pos_left)
+                                        || grid_map->getInflateOccupancy(candidate_pos_right)
+                                        || grid_map->getInflateOccupancy(candidate_pos_front)
+                                        || grid_map->getInflateOccupancy(candidate_pos_back);
       if(!candidate_in_inflated_zone){
         target = candidate_pos;
         target(2) = 1.0;
@@ -541,7 +565,7 @@ namespace ego_planner
       }
       else
       {
-        if (odom_vel_.norm() < 0.1)
+        if (odom_vel_.norm() < 0.2)
           changeFSMExecState(GEN_NEW_TRAJ, "FSM"); // 制动成功后切换至生成新轨迹状态
       }
 

@@ -55,6 +55,7 @@ extern ros::Publisher target_pub;
 extern ros::Subscriber local_pos_sub;
 extern ros::Subscriber state_sub;
 extern ros::Subscriber nav_check_sub;
+extern ros::Subscriber adjusted_goal_sub;
 extern ros::ServiceClient arming_client;
 extern ros::ServiceClient set_mode_client;
 
