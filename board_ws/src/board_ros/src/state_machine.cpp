@@ -161,10 +161,11 @@ void overlooking(ros::Rate &rate)
 void searching(ros::Rate &rate)
 {
     bool isRetrying = false;// 表示这一次searching是不是在重试之前卡住的点
+    geometry_msgs::Point retry_point;
     if (!is_stuck)
     { // 上一次没有被卡住
         if(retry_points.size() > 0){ // 存在需要重试的点
-            geometry_msgs::Point retry_point = retry_points.front();
+            retry_point = retry_points.front();
             retry_points.pop();
             // TODO：把发布的导航点设为retry_point，而非searching_points[searching_index]
             isRetrying = true;

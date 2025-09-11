@@ -15,6 +15,7 @@
 #include <mavros_msgs/State.h>
 #include <deque>
 #include <vector>
+#include <queue>
 #include <algorithm>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/utils.h>
