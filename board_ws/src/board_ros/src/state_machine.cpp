@@ -667,6 +667,7 @@ void detecting(ros::Rate &rate)
 
             board_ros::track::publish_endpoints_posearray(establishedPoints, target_pose);
             board_ros::track::publish_direction_u(establishedPoints, target_pose);
+            target_pub.publish(target_pose);
             break;
         }
         }
