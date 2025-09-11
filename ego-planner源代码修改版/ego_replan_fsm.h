@@ -87,6 +87,7 @@ namespace ego_planner
     ros::Publisher escape_pose_pub_;
     ros::Publisher escape_state_pub_;
     ros::Publisher self_trig_pub_;
+    ros::Publisher adjusted_goal_pub;
 
 
     /* ROS utils */

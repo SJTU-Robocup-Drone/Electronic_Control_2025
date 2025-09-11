@@ -22,6 +22,7 @@ ros::Subscriber man_check_sub;
 ros::Subscriber return_state_sub;
 ros::Subscriber is_done_sub;
 ros::Subscriber detection_sub;
+ros::Subscriber adjusted_goal_sub;
 
 ros::ServiceClient arming_client;
 ros::ServiceClient set_mode_client;
@@ -55,6 +56,22 @@ void nav_check_cb(const mavros_msgs::PositionTarget::ConstPtr &msg)
     }
 }
 
+void adjusted_goal_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
+{
+    //TODO
+    if(mission_state == SEARCHING){
+        searching_points[searching_index] = msg->pose.position;
+        ROS_INFO("Received adjusted goal for searching: (%.2f, %.2f, %.2f)", msg->pose.position.x, msg->pose.position.y, msg->pose.position.z);
+    }
+    else if(mission_state == OBSTACLE_AVOIDING){
+        obstacle_zone_points[obstacle_zone_index] = msg->pose.position;
+        ROS_INFO("Received adjusted goal for obstacle avoiding: (%.2f, %.2f, %.2f)", msg->pose.position.x, msg->pose.position.y, msg->pose.position.z);
+    }
+    else{
+        ROS_WARN("Received adjusted goal in invalid state, ignoring.");
+    }
+}
+
 // 统一通信初始化
 void init_nav_interfaces(ros::NodeHandle &nh)
 {
@@ -77,6 +94,7 @@ void init_nav_interfaces(ros::NodeHandle &nh)
     return_state_sub = nh.subscribe<std_msgs::Bool>("/return_state", 10, return_state_cb);
     is_done_sub = nh.subscribe<std_msgs::Bool>("/done_state", 10, is_done_cb);
     detection_sub = nh.subscribe<geometry_msgs::PointStamped>("/detection_results", 10, detection_cb);
+    adjusted_goal_sub = nh.subscribe<geometry_msgs::PoseStamped>("/adjusted_goal", 10, adjusted_goal_cb);
 
     arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
     set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");

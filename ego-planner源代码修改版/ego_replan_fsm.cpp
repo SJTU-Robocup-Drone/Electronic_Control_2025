@@ -21,6 +21,7 @@ namespace ego_planner
     escape_pose_pub_ = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 50);
     escape_state_pub_ = nh.advertise<std_msgs::Bool>("/escape_state", 10);
     self_trig_pub_ = nh.advertise<geometry_msgs::PoseStamped>("/control/move_base_simple/goal", 10);
+    adjusted_goal_pub = nh.advertise<geometry_msgs::PoseStamped>("/adjusted_goal", 10);
 
     /*  fsm param  */
     nh.param("fsm/flight_type", target_type_, -1);
@@ -185,6 +186,14 @@ namespace ego_planner
       // finding a new target
       if (adjustTarget(end_pt_)) {
         ROS_INFO("Find a safe goal. ");
+
+        geometry_msgs::PoseStamped adjusted_goal_msg;
+        adjusted_goal_msg.header.stamp = ros::Time::now();
+        adjusted_goal_msg.header.frame_id = "map";
+        adjusted_goal_msg.pose.position.x = end_pt_(0);
+        adjusted_goal_msg.pose.position.y = end_pt_(1);
+        adjusted_goal_msg.pose.position.z = end_pt_(2);
+        adjusted_goal_pub.publish(adjusted_goal_msg);
       } else {
         ROS_ERROR("Failed to find safe goal! Attempting original goal.");
       }
