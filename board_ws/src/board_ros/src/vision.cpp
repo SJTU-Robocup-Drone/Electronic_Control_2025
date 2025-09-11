@@ -105,6 +105,8 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
             ROS_INFO("y=%.2f", current_pose.pose.position.y);
         }
     }
+    // ADJUSTING阶段刷新标志位
+    if (mission_state == ADJUSTING) adjust_has_target = true;
 }
 
 // 定时遍历目标数组并根据其中的数据更新target_pose
@@ -138,7 +140,7 @@ void process_target_cb()
                 target_pose.header.frame_id = "map";
                 target_pose.pose.position.x = coordArray[i][0];
                 target_pose.pose.position.y = coordArray[i][1];
-                target_pose.pose.position.z = 1.0;
+                if(i != 0 || is_done) target_pose.pose.position.z = 1.0;
 
                 current_index = i;
                 break;
@@ -197,7 +199,6 @@ void receive_target()
         else
             vision_bias_cnt = 0;
         last_target_point = target_pose.pose.position;
-        adjust_has_target = true;
     }
 }
 
