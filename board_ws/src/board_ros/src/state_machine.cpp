@@ -1,4 +1,4 @@
-#include "navigate.h"
+#include "communication.h"
 #include "function.h"
 #include "state_machine.h"
 #include "vision.h"
@@ -99,7 +99,7 @@ void takeoff(ros::Rate &rate)
 
         if (current_pose.pose.position.z >= 0.8)
         {
-            mission_state = FOLLOWING;
+            mission_state = SEARCHING;
             ROS_INFO("Takeoff complete. Starting overlooking.");
 
             // 起飞后悬停一秒，给建图和ego_planner启动留时间；同时也给pose一个初始的有效值，防止飞控在ego_planner未启动时因长时间接收不到目标点而进入failsafe模式
@@ -487,7 +487,7 @@ void following(ros::Rate &rate)
     {
         if (target_pose.pose.position.z != -1)
         { // 找到了靶标，进入靶标跟随状态
-            ROS_INFO_THROTTLE(2.0, "Target found, keeping following to target.");
+            // ROS_INFO_THROTTLE(2.0, "Target found, keeping following to target.");
         }
         else
         {

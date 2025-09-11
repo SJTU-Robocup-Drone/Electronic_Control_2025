@@ -1,7 +1,6 @@
 #include "vision.h"
 #include "function.h"
 
-
 // 定义视觉缓存
 std::deque<TimedPose> history_;
 const size_t MAX_HISTORY = 10; // 缓冲 10 帧
@@ -11,7 +10,6 @@ bool is_returning = false;
 bool is_done = false;
 bool is_found = false;
 int current_index = 0;
-double yaw = 0;
 double coordX = 0;
 double coordY = 0;
 
@@ -37,7 +35,6 @@ void pose_cb(const nav_msgs::Odometry::ConstPtr &msg)
     current_pose.pose = msg->pose.pose;
     coordX = current_pose.pose.position.x;
     coordY = current_pose.pose.position.y;
-    yaw = tf2::getYaw(current_pose.pose.orientation);
 }
 
 void man_check_cb(const std_msgs::Int32::ConstPtr &msg)
@@ -56,9 +53,10 @@ void is_done_cb(const std_msgs::Bool::ConstPtr &msg)
 }
 
 // 接收视觉节点发的相对目标坐标并转化为全局坐标
-void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg) {
-    target_pose.header.stamp = msg -> header.stamp; // 记录消息时间戳
-    std::string target_name = msg -> header.frame_id;
+void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
+{
+    target_pose.header.stamp = msg->header.stamp; // 记录消息时间戳
+    std::string target_name = msg->header.frame_id;
     double rel_x = msg->point.x;
     double rel_y = msg->point.y;
 
@@ -68,21 +66,32 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg) {
     {
         int type = it->second;
 
-        //定义机体系x，y
+        // 定义机体系x，y
         double drone_x = -rel_y;
         double drone_y = -rel_x;
+        // 获取无人机偏航角
+        double yaw, pitch, roll;
+        tf2::getEulerYPR(current_pose.pose.orientation, yaw, pitch, roll);
 
-        // 相对坐标转全局坐标（考虑无人机偏航角）
-        double global_x = coordX + drone_x * cos(yaw) - drone_y * sin(yaw);
-        double global_y = coordY + drone_x * sin(yaw) + drone_y * cos(yaw);
+        tf2::Matrix3x3 R;
+        R.setRPY(roll, pitch, yaw); // 注意顺序是 RPY = (roll, pitch, yaw)
+
+        tf2::Vector3 local(drone_x, drone_y, 0.0);
+        tf2::Vector3 global = R * local;
+
+        // 平移到无人机当前位置
+        double global_x = coordX + global.x();
+        double global_y = coordY + global.y();
 
         // 只更新未投掷的目标
         if (coordArray[type][0] != -50)
         {
             coordArray[type][0] = global_x;
             coordArray[type][1] = global_y;
-            
-            ROS_INFO_THROTTLE(2.0, "Refreshing target %s, relative coord: (%.2f, %.2f)", target_name.c_str(), global_x, global_y);
+            ROS_INFO("Refreshing target %s, relative coord: (%.2f, %.2f),at %f", target_name.c_str(), global_x, global_y, target_pose.header.stamp.toSec());
+            ROS_INFO("Relevant target at : (%.2f, %.2f) ", drone_x, drone_y);
+            ROS_INFO("x=%.2f", current_pose.pose.position.x);
+            ROS_INFO("y=%.2f", current_pose.pose.position.y);
         }
     }
 }
@@ -97,7 +106,7 @@ void process_target_cb()
         {
             is_found = true;
             ROS_INFO("Landing area found at: (%.2f, %.2f)", coordArray[5][0], coordArray[5][1]);
-            
+
             target_pose.header.frame_id = "map";
             target_pose.pose.position.x = coordArray[5][0];
             target_pose.pose.position.y = coordArray[5][1];
@@ -150,8 +159,8 @@ void receive_target()
     if (target_index < 3 && target_pose.pose.position.z != -1)
     {
         ros::Duration delay = ros::Time::now() - target_pose.header.stamp;
-        ROS_INFO_THROTTLE(2.0, "Target found at (%.2f, %.2f, %.2f), propagation delay: %.2f s",
-                          target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z, delay.toSec());
+        // ROS_INFO_THROTTLE(2.0, "Target found at (%.2f, %.2f, %.2f), propagation delay: %.2f s",
+        //                   target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z, delay.toSec());
         if ((mission_state == ADJUSTING && !is_return) || mission_state == FOLLOWING)
         {
             target_pose.pose.position.x += offset[target_index][0];

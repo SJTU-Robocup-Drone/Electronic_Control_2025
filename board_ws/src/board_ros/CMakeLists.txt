@@ -159,9 +159,10 @@ add_executable(control src/control.cpp)
 add_executable(offb_node
   src/offboard.cpp
   src/vision.cpp
-  src/navigate.cpp
+  src/communication.cpp
   src/state_machine.cpp
   src/function.cpp
+  src/compute.cpp
 )
 
 ## Rename C++ executable without prefix

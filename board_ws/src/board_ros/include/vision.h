@@ -1,8 +1,6 @@
 #pragma once
 #include "offboard.h"
 
-// 初始化视觉话题/服务函数
-void init_vis_interfaces(ros::NodeHandle &nh);
 // 定时视觉信息存储和刷新函数
 void process_target_cb();
 // 视觉信息最终纠偏与检查函数
@@ -11,15 +9,15 @@ void receive_target();
 void visionCallback(const geometry_msgs::PoseStamped &msg);
 // 视觉目标回调函数
 void target_cb(const geometry_msgs::PoseStamped::ConstPtr &msg);
-
+// 里程计回调函数
 void pose_cb(const nav_msgs::Odometry::ConstPtr &msg);
-
+// 投弹回调函数
 void man_check_cb(const std_msgs::Int32::ConstPtr &msg);
-
+// 返航状态回调函数
 void return_state_cb(const std_msgs::Bool::ConstPtr &msg);
-
+// 任务完成回调函数
 void is_done_cb(const std_msgs::Bool::ConstPtr &msg);
-
+// 视觉检测回调函数
 void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg);
 
 // 计算平均速度函数
