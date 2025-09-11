@@ -180,7 +180,7 @@ void searching(ros::Rate &rate)
         while (searching_points[searching_index].z == -1)
             searching_index--;
         is_stuck = false;
-        is_once_stuck = true；
+        is_once_stuck = true;
     }
 
     // 如果所有搜索点都已访问或ego-planner卡得索引降至零以下了，为了防止下标越界直接切状态
