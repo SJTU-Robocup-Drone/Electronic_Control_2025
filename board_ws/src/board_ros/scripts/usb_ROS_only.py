@@ -9,12 +9,13 @@ import pyrealsense2 as rs
 import time
 import threading
 import cv2
+import math
 from nav_msgs.msg import Odometry
 from utils.augmentations import letterbox
 from utils.general import non_max_suppression
 
 # 视觉处理频率 帧/秒
-vision_rate=30  
+vision_rate=60  
 
 # 视觉状态控制
 scanning_active = False
@@ -40,6 +41,7 @@ desired_height = 720
 desired_fps = 60
 # 坐标发布器
 detection_pub = None
+random_pub = None
 odom_pos = None
 
 def check_queue(items, class_id, confidence, x, y, z):
@@ -79,7 +81,7 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
     return coords
 
 def detect_targets():
-    global detection_pub, odom_pos
+    global detection_pub, odom_pos, random_pub
 
     # 初始化 YOLO 模型
     model_path = '/home/amov/board_ws/src/board_ros/scripts/best_0801.pt'
@@ -165,16 +167,28 @@ def detect_targets():
                     x, y, z = check_queue(items, class_id, float(conf), x, y, z)
 
                     # 发布检测结果
-                    if conf > 0.8 and detection_pub and frame_count % (vision_rate/30) == 0:
+                    if conf > 0.8 and frame_count % (60/vision_rate) == 0:
                         detection_msg = PointStamped()
                         detection_msg.header.stamp = rospy.Time.now()
                         detection_msg.header.frame_id = names[class_id]  # 使用类别名作为frame_id
-                        detection_msg.point.x = x
-                        detection_msg.point.y = y
-                        detection_msg.point.z = z
-                        detection_pub.publish(detection_msg)
+                        if names[class_id] == "red":
+                            cross_center = detect_red_crossing(frames)
+                            x_new, y_new = cross_center
+                            x_new = (x_new - cx) / fx * camera_height
+                            y_new = (y_new - cy) / fy * camera_height
+                            rospy.loginfo(f"OpenCV检测到: {names[class_id]}, 坐标: X={x_new:.2f}, Y={y_new:.2f}, Z={z:.2f}, 置信度: {conf:.2f}")
+                            if math.sqrt((x-x_new)**2 +(y-y_new)**2) <= 0.1:
+                                detection_msg.point.x = x_new
+                                detection_msg.point.y = y_new
+                                detection_msg.point.z = z
+                                random_pub.publish(detection_msg)
+                        if names[class_id] != "red":
+                            detection_msg.point.x = x
+                            detection_msg.point.y = y
+                            detection_msg.point.z = z
+                            detection_pub.publish(detection_msg)
                         
-                        rospy.loginfo(f"检测到: {names[class_id]}, 坐标: X={x:.2f}, Y={y:.2f}, Z={z:.2f}, 置信度: {conf:.2f}")
+                        rospy.loginfo(f"YOLO检测到: {names[class_id]}, 坐标: X={x:.2f}, Y={y:.2f}, Z={z:.2f}, 置信度: {conf:.2f}")
 
             
 
@@ -211,7 +225,7 @@ if __name__ == "__main__":
     
     # 创建发布器
     detection_pub = rospy.Publisher("/detection_results", PointStamped, queue_size=10)
-    
+    random_pub = rospy.Publisher("/random_target", PointStamped, queue_size=2)
     rospy.Subscriber("/vision_state", Bool, vision_state_callback)
     rospy.Subscriber("/odom_high_freq", Odometry, odom_callback)
     rospy.loginfo("[INFO] 视觉节点已启动，等待/vision_state指令...")
