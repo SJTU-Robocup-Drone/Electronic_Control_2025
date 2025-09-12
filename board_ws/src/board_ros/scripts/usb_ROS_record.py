@@ -167,10 +167,6 @@ def detect_targets():
             if not ret:
                 print("无法读取帧")
                 break
-
-            # 保存原始帧到视频文件
-            if recording_active and video_writer is not None:
-                video_writer.write(frames)
             
             # color_image = np.asanyarray(cv2.cvtColor(frames, cv2.COLOR_BGR2RGB))#转换为numpy数组
             color_image = np.asanyarray(frames)#转换为numpy数组
@@ -186,10 +182,32 @@ def detect_targets():
                 pred = model(img, augment=False)[0]
                 pred = non_max_suppression(pred, conf_thres=0.25, iou_thres=0.45)[0]
 
+            processed_frame = frames.copy()
+            
             if pred is not None and len(pred):
                 pred[:, :4] = scale_coords(img.shape[2:], pred[:, :4], color_image.shape).round()
                 for *xyxy, conf, cls in pred:
                     xmin, ymin, xmax, ymax = map(int, xyxy)
+
+                    class_id = int(cls)
+                    label = f"{names[class_id]}{conf:.2f}"
+
+                    # 选择颜色 (BGR格式)
+                    colors = [(0, 255, 0), (0, 165, 255), (255, 0, 0), 
+                             (255, 255, 0), (0, 255, 255), (255, 0, 255), (0, 0, 255)]
+                    color = colors[class_id % len(colors)]
+                    
+                    # 绘制矩形框
+                    cv2.rectangle(processed_frame, (xmin, ymin), (xmax, ymax), color, 2)
+                    
+                    # 绘制标签背景
+                    label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
+                    cv2.rectangle(processed_frame, (xmin, ymin - label_size[1] - 10), 
+                                 (xmin + label_size[0], ymin), color, -1)
+                    
+                    # 绘制标签文字
+                    cv2.putText(processed_frame, label, (xmin, ymin - 5), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                     
                     #检测框中心像素坐标
                     x_found= (xmin + xmax) // 2
@@ -206,7 +224,7 @@ def detect_targets():
                     y = (y_found - cy) / fy * camera_height
                     z = camera_height  
 
-                    class_id = int(cls)
+                   
                     x, y, z = check_queue(items, class_id, float(conf), x, y, z)
 
                     # 发布检测结果
@@ -220,7 +238,10 @@ def detect_targets():
                         detection_pub.publish(detection_msg)
                         
                         rospy.loginfo(f"检测到: {names[class_id]}, 坐标: X={x:.2f}, Y={y:.2f}, Z={z:.2f}, 置信度: {conf:.2f}")
-
+            # 保存处理后的帧到视频文件
+            if recording_active and video_writer is not None:
+                video_writer.write(processed_frame)
+                
     except Exception as e:
         rospy.logerr(f"检测过程中出现错误: {e}")
     finally:
