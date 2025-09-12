@@ -22,6 +22,8 @@
 #include <cmath>
 #include <map>
 #include <string>
+#include <serial/serial.h>
+#include <iostream>
 // —— 状态（原名保留）——
 enum MissionState
 {
@@ -80,6 +82,11 @@ extern std_msgs::Bool vision_state_msg;
 extern std_msgs::Bool return_state_msg;
 extern std_msgs::Bool is_done_msg;
 extern std_msgs::Bool param_set_msg;
+
+extern std::string portName;
+extern std::string command;
+extern int baudrate;
+extern serial::Serial ser;
 
 extern bool is_stuck;
 extern bool is_once_stuck;

@@ -1,6 +1,7 @@
 #include "communication.h"
 #include "function.h"
 #include "vision.h"
+#include "offboard.h"
 
 // 定义话题服务
 ros::Publisher local_pos_pub;
@@ -102,4 +103,19 @@ void init_nav_interfaces(ros::NodeHandle &nh)
 
     process_target_timer = nh.createTimer(ros::Duration(0.02), [](const ros::TimerEvent &)
                                           { process_target_cb(); });
+    portName = "/dev/ttyUSB1"; // 连接esp32的串口名
+    baudrate = 115200; // 串口波特率
+    try {
+        ser.setPort(portName);
+        ser.setBaudrate(baudrate);
+        serial::Timeout to = serial::Timeout::simpleTimeout(1000);
+        ser.setTimeout(to);
+        ser.open();
+    } catch (serial::IOException& e) {
+        ROS_ERROR_STREAM("Unable to open port " << portName);
+    }
+
+    if (ser.isOpen()) {
+        ROS_INFO_STREAM("Serial port initialized: " << portName);
+    } 
 }

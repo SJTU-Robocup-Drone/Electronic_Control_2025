@@ -28,6 +28,11 @@ std_msgs::Bool return_state_msg;
 std_msgs::Bool is_done_msg;
 std_msgs::Bool param_set_msg;
 
+std::string portName;
+std::string command;
+int baudrate;
+serial::Serial ser;
+
 bool is_stuck = false;
 bool is_once_stuck = false;
 bool is_return = false;
@@ -371,8 +376,11 @@ void bombing(ros::Rate &rate)
         if(current_pose.pose.position.z <= 0.5 && !isBombed)
         {
             ROS_INFO("Releasing bomb %d...", target_index + 1);
-            target_index_msg.data = target_index;
-            manba_pub.publish(target_index_msg);
+            // target_index_msg.data = target_index;
+            // manba_pub.publish(target_index_msg);
+            command = std::to_string(target_index + 1) + std::to_string(0) + "\n";
+            ser.write(command);
+            ROS_INFO_STREAM("Sent command to servo" << target_index + 1 << ": " << command);
             isBombed = true;
         }
         rate.sleep();
@@ -411,6 +419,11 @@ void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
         hovering(1.0, 0.5, false, rate);
         target_index++;
     }
+
+    // 若串口未关闭，关闭串口
+    if (ser.isOpen())
+        ser.close();
+
     if (!is_param_set && obstacle_zone_index >= 1)
     {
         is_param_set = true;
@@ -464,6 +477,9 @@ void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
 
 void descending(ros::Rate &rate)
 {
+    // 若串口未关闭，关闭串口
+    if (ser.isOpen())
+        ser.close();
     set_and_pub_pose(current_pose.pose.position.x, current_pose.pose.position.y, 0.3);
     while (distance(current_pose, pose.pose.position) > threshold_distance && ros::ok())
     {
