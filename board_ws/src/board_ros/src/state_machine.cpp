@@ -212,7 +212,7 @@ void searching(ros::Rate &rate)
 
     // 发布航点并进入导航状态前先悬停，给建图留时间
     ROS_INFO("Hovering before navigating...");
-    hovering(0.9, 5.0, false, rate);
+    hovering(0.8, 5.0, false, rate);
 
     if(!isRetrying){// 导航前往新的点
         // 发布航点,更新导航时间
@@ -327,7 +327,7 @@ void adjusting(ros::Rate &rate)
     vision_state_msg.data = true; // 开启视觉扫描
     adjust_has_target = false;
     ROS_INFO("2nd time of visual scanning...");
-    hovering(1, 10, true, rate);
+    hovering(0.7, 10, true, rate);
     vision_state_msg.data = false; // 关闭视觉扫描
 
     pose.header.frame_id = "map";
@@ -341,8 +341,14 @@ void adjusting(ros::Rate &rate)
     }
     else if (!adjust_has_target)
     {
-        ROS_WARN("Adjusting stage hasn't scanned a target. Vision scanning of OVERLOOKING may be wrong. Directly turning to SEARCHING mode...");
-        mission_state = SEARCHING;
+        if(!is_return){
+            ROS_WARN("Adjusting stage hasn't scanned a target. Vision scanning of OVERLOOKING may be wrong. Directly turning to SEARCHING mode...");
+            mission_state = SEARCHING;
+        }
+        else{
+            ROS_WARN("Adjusting stage hasn't scanned a target. Directly descending...");
+            mission_state = DESCENDING;
+        }
         return;
     }
     else
@@ -357,7 +363,8 @@ void adjusting(ros::Rate &rate)
         ros::spinOnce();
         pose.header.stamp = ros::Time::now();
         vision_state_pub.publish(vision_state_msg);
-        local_pos_pub.publish(pose);
+        set_and_pub_pose(target_pose.pose.position.x, target_pose.pose.position.y, current_pose.pose.position.z);
+        ROS_INFO_THROTTLE(1.0, "Adjusting to (%.2f, %.2f)...", pose.pose.position.x, pose.pose.position.y);
         rate.sleep();
     }
     if (is_return)
@@ -375,7 +382,7 @@ void bombing(ros::Rate &rate)
     pose.pose.position.z = 0.2; // 实际上没用
     vel.linear.x = 0.0;
     vel.linear.y = 0.0;
-    vel.linear.z = -2.0;
+    vel.linear.z = -4.0;
     // 边下降边投弹
     bool isBombed = false;
     while (ros::ok() && current_pose.pose.position.z >= 0.25)
@@ -383,7 +390,7 @@ void bombing(ros::Rate &rate)
         ros::spinOnce();
         // local_pos_pub.publish(pose);
         local_vel_pub.publish(vel);
-        if(current_pose.pose.position.z <= 0.5 && !isBombed)
+        if(current_pose.pose.position.z <= 0.4 && !isBombed)
         {
             ROS_INFO("Releasing bomb %d...", target_index + 1);
             // target_index_msg.data = target_index;
@@ -427,8 +434,11 @@ void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
     while (target_index < 3)
     {
         ROS_INFO("Still have bombs left, dropping now...");
-        target_index_msg.data = target_index;
-        manba_pub.publish(target_index_msg);
+        // target_index_msg.data = target_index;
+        // manba_pub.publish(target_index_msg);
+        command = std::to_string(target_index + 1) + std::to_string(0) + "\n";
+        ser.write(command);
+        ROS_INFO_STREAM("Sent command to servo" << target_index + 1 << ": " << command);
         hovering(1.0, 0.5, false, rate);
         target_index++;
     }
@@ -452,7 +462,7 @@ void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
     }
 
     ROS_INFO("Hovering before navigating...");
-    hovering(0.9, 5, false, rate);
+    hovering(0.8, 5, false, rate);
     // 发布航点，更新导航时间
     if (obstacle_zone_index < obstacle_zone_points.size())
     {
