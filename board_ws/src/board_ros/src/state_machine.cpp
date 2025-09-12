@@ -361,7 +361,7 @@ void adjusting(ros::Rate &rate)
         if(!is_return){
             ROS_WARN("Adjusting stage hasn't scanned a target. Vision scanning of OVERLOOKING may be wrong. Directly turning to SEARCHING mode...");
             mission_state = SEARCHING;
-            coordArray[current_index][0] = -100; // 放弃误识别的靶标
+            targetArray[current_index].isValid = false; // 放弃误识别的靶标
         }
         else{
             ROS_WARN("Adjusting stage hasn't scanned a target. Directly descending...");
