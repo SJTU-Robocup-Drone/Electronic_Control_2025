@@ -116,7 +116,7 @@ void process_target_cb()
             target_pose.header.frame_id = "map";
             target_pose.pose.position.x = coordArray[5][0];
             target_pose.pose.position.y = coordArray[5][1];
-            target_pose.pose.position.z = 1.0;
+            target_pose.pose.position.z = 0.9;
 
             current_index = 5;
         }
@@ -133,7 +133,7 @@ void process_target_cb()
                 target_pose.header.frame_id = "map";
                 target_pose.pose.position.x = coordArray[i][0];
                 target_pose.pose.position.y = coordArray[i][1];
-                if(i != 0 || is_done) target_pose.pose.position.z = 1.0;
+                if(i != 0 || is_done) target_pose.pose.position.z = 0.9;
 
                 break;
             }
