@@ -16,12 +16,23 @@ import matplotlib.pyplot as plt
 
 
 class VizNode:
-    def __init__(self, endpoints_topic, u_topic, target_topic, window_sec, rate_hz):
+    def __init__(self, endpoints_topic, u_topic, target_topic, window_sec, rate_hz,
+                 point_size=6, point_color='blue',
+                 endpoint_size=30, a_color='red', b_color='orange',
+                 line_color='green', arrow_color='green'):
         self.endpoints_topic = endpoints_topic
         self.u_topic = u_topic
         self.target_topic = target_topic
         self.window_sec = window_sec
         self.rate_hz = rate_hz
+
+        self.point_size = point_size
+        self.point_color = point_color
+        self.endpoint_size = endpoint_size
+        self.a_color = a_color
+        self.b_color = b_color
+        self.line_color = line_color
+        self.arrow_color = arrow_color
 
         self.lock = threading.Lock()
         self.buf = deque()  # (t, x, y)
@@ -36,10 +47,11 @@ class VizNode:
 
         # Matplotlib
         self.fig, self.ax = plt.subplots(figsize=(6, 6))
-        self.sc_points = self.ax.scatter(np.empty((0, 2)), np.empty((0,)))
-        (self.line_fit,) = self.ax.plot([], [], lw=2, label="Segment A—B")
-        self.ptA = self.ax.scatter(np.empty((0, 2)), np.empty((0,)), s=60, marker='x', label="A")
-        self.ptB = self.ax.scatter(np.empty((0, 2)), np.empty((0,)), s=60, marker='x', label="B")
+        # 初始化使用空列表；后续用 set_offsets((N,2)) 更新
+        self.sc_points = self.ax.scatter([], [], s=self.point_size, c=self.point_color, label="Target points")
+        (self.line_fit,) = self.ax.plot([], [], lw=2, c=self.line_color, label="Segment A—B")
+        self.ptA = self.ax.scatter([], [], s=self.endpoint_size, c=self.a_color, marker='x', label="A")
+        self.ptB = self.ax.scatter([], [], s=self.endpoint_size, c=self.b_color, marker='x', label="B")
         self.arrow = None
         self.text_info = self.ax.text(0.02, 0.98, "", transform=self.ax.transAxes,
                                       ha="left", va="top", fontsize=9)
@@ -50,12 +62,16 @@ class VizNode:
         self.ax.grid(True)
         self.ax.legend(loc="best")
 
+        # 统一的空二维数组，避免维度问题
+        self.EMPTY2 = np.empty((0, 2))
+
     # --- 回调 ---
     def cb_target(self, msg: PoseStamped):
         t = msg.header.stamp.to_sec() if msg.header.stamp else rospy.Time.now().to_sec()
         x, y = msg.pose.position.x, msg.pose.position.y
         with self.lock:
             self.buf.append((t, x, y))
+            # 丢弃窗口外历史
             t_now = t
             while self.buf and (t_now - self.buf[0][0]) > self.window_sec:
                 self.buf.popleft()
@@ -68,6 +84,7 @@ class VizNode:
             B = msg.poses[1].position
             self.A = np.array([A.x, A.y], dtype=float)
             self.B = np.array([B.x, B.y], dtype=float)
+            # 若还没收到 u，则临时用 AB 方向
             if not self.have_u:
                 AB = self.B - self.A
                 n = np.linalg.norm(AB)
@@ -84,19 +101,19 @@ class VizNode:
     # --- 绘制一步 ---
     def step_plot(self):
         with self.lock:
-            pts = np.array([(x, y) for (_, x, y) in self.buf], dtype=float) if len(self.buf) else np.empty((0, 2))
+            pts = np.array([(x, y) for (_, x, y) in self.buf], dtype=float) if self.buf else self.EMPTY2
             A = None if self.A is None else self.A.copy()
             B = None if self.B is None else self.B.copy()
             u = None if self.u is None else self.u.copy()
 
         # 目标点散点
-        self.sc_points.set_offsets(pts if len(pts) else np.empty((0, 2)))
+        self.sc_points.set_offsets(pts if pts.size else self.EMPTY2)
 
         # 自动缩放（有数据再设）
-        if len(pts) or (A is not None and B is not None):
+        if pts.size or (A is not None and B is not None):
             mins = []
             maxs = []
-            if len(pts):
+            if pts.size:
                 mins.append(pts.min(axis=0)); maxs.append(pts.max(axis=0))
             if A is not None:
                 mins.append(A); maxs.append(A)
@@ -121,18 +138,19 @@ class VizNode:
                 n = np.linalg.norm(AB)
                 u = (AB / n) if n > 1e-9 else None
             if u is not None:
-                # 缩小箭头（长度=线段长度的5%，最小0.1m；箭头宽/长也更小）
+                # 箭头：长度=线段长度的5%，最小0.1m；箭头宽/长也较小
                 seg_len = float(np.linalg.norm(B - A))
                 length = max(0.05 * seg_len, 0.1)
                 self.arrow = self.ax.arrow(A[0], A[1], u[0]*length, u[1]*length,
                                            head_width=0.03, head_length=0.05,
-                                           length_includes_head=True, alpha=0.85)
+                                           length_includes_head=True, alpha=0.85,
+                                           color=self.arrow_color)
             L = float(np.linalg.norm(B - A))
             self.text_info.set_text(f"A=({A[0]:.2f},{A[1]:.2f})  B=({B[0]:.2f},{B[1]:.2f})  L={L:.2f}")
         else:
             self.line_fit.set_data([], [])
-            self.ptA.set_offsets(np.empty((0, 2)))
-            self.ptB.set_offsets(np.empty((0, 2)))
+            self.ptA.set_offsets(self.EMPTY2)
+            self.ptB.set_offsets(self.EMPTY2)
             if self.arrow is not None:
                 self.arrow.remove()
                 self.arrow = None
@@ -151,14 +169,27 @@ class VizNode:
 def main():
     parser = argparse.ArgumentParser(description="可视化 Endpoints(PoseArray) + Direction(Vector3Stamped) + Target(PoseStamped)")
     parser.add_argument("--endpoints", type=str, default="/track/endpoints_posearray", help="PoseArray 端点话题")
-    parser.add_argument("--udir", type=str, default="/track/endpoints_dir", help="方向向量话题(Vector3Stamped)")
-    parser.add_argument("--target", type=str, default="/target", help="目标点话题(PoseStamped)")
-    parser.add_argument("--window", type=float, default=30.0, help="滑窗时间长度 (s)")
-    parser.add_argument("--rate", type=float, default=30.0, help="刷新频率 (Hz)")
+    parser.add_argument("--udir",      type=str, default="/track/endpoints_dir",      help="方向向量话题(Vector3Stamped)")
+    parser.add_argument("--target",    type=str, default="/target",                   help="目标点话题(PoseStamped)")
+    parser.add_argument("--window",    type=float, default=30.0,                      help="滑窗时间长度 (s)")
+    parser.add_argument("--rate",      type=float, default=30.0,                      help="刷新频率 (Hz)")
+
+    # 颜色/尺寸参数
+    parser.add_argument("--point-size",    type=float, default=4,     help="目标散点大小")
+    parser.add_argument("--point-color",   type=str,   default="blue",help="目标散点颜色")
+    parser.add_argument("--endpoint-size", type=float, default=30,    help="端点 A/B 标记大小")
+    parser.add_argument("--a-color",       type=str,   default="red", help="端点 A 颜色")
+    parser.add_argument("--b-color",       type=str,   default="orange", help="端点 B 颜色")
+    parser.add_argument("--line-color",    type=str,   default="green",  help="A—B 线段颜色")
+    parser.add_argument("--arrow-color",   type=str,   default="green",  help="方向箭头颜色")
+
     args = parser.parse_args()
 
     rospy.init_node("viz_endpoints_target", anonymous=True)
-    node = VizNode(args.endpoints, args.udir, args.target, args.window, args.rate)
+    node = VizNode(args.endpoints, args.udir, args.target, args.window, args.rate,
+                   point_size=args.point_size, point_color=args.point_color,
+                   endpoint_size=args.endpoint_size, a_color=args.a_color, b_color=args.b_color,
+                   line_color=args.line_color, arrow_color=args.arrow_color)
     node.run()
 
 
