@@ -50,6 +50,7 @@ void is_done_cb(const std_msgs::Bool::ConstPtr &msg)
 // 接收视觉节点发的相对目标坐标并转化为全局坐标
 void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
 {
+    if(!vision_state_msg.data) return; // 如果不是扫描状态，忽略这个话题的信息
     target_pose.header.stamp = msg->header.stamp; // 记录消息时间戳
     std::string target_name = msg->header.frame_id;
     double rel_x = msg->point.x;
