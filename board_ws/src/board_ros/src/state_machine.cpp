@@ -137,7 +137,8 @@ void overlooking(ros::Rate &rate)
     }
 
     ROS_INFO("Reached overlooking position. Scanning for target...");
-    hovering(3, 10, true, rate);
+    hovering(3, 2, false, rate);
+    hovering(3, 8, true, rate);
 
     ROS_INFO("Overlooking complete, descending to normal flight height.");
     // 降低高度到1米(原飞行高度)
