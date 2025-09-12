@@ -11,14 +11,13 @@ void visionCallback(const geometry_msgs::PoseStamped &msg);
 void target_cb(const geometry_msgs::PoseStamped::ConstPtr &msg);
 // 里程计回调函数
 void pose_cb(const nav_msgs::Odometry::ConstPtr &msg);
-// 投弹回调函数
-void man_check_cb(const std_msgs::Int32::ConstPtr &msg);
 // 返航状态回调函数
 void return_state_cb(const std_msgs::Bool::ConstPtr &msg);
 // 任务完成回调函数
 void is_done_cb(const std_msgs::Bool::ConstPtr &msg);
 // 视觉检测回调函数
 void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg);
+void random_target_cb(const geometry_msgs::PointStamped::ConstPtr &msg);
 
 // 计算平均速度函数
 geometry_msgs::Vector3 computeAverageVelocity();
