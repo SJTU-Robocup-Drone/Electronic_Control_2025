@@ -323,3 +323,43 @@ void computeOverheadVelocityCmd(const geometry_msgs::Vector3 &tgt_vel, // 目标
     output_vel.linear.y = vy_cmd;
     output_vel.linear.z = 0.0; // 固高 1.5m 建议在 MAVROS PositionTarget 的 position.z 体现
 }
+
+// 加入一个 PoseStamped，并清理过期的
+void addPose(const geometry_msgs::PoseStamped &pose, std::deque<geometry_msgs::PoseStamped> g_pose_buffer, ros::Duration g_window_len)
+{
+    g_pose_buffer.push_back(pose);
+
+    ros::Time now = pose.header.stamp;
+    while (!g_pose_buffer.empty() && (now - g_pose_buffer.front().header.stamp) > g_window_len)
+    {
+        g_pose_buffer.pop_front();
+    }
+}
+
+// 查找某个时间戳附近的 PoseStamped
+bool getPoseAt(const ros::Time &t, geometry_msgs::PoseStamped &out, std::deque<geometry_msgs::PoseStamped> g_pose_buffer, ros::Duration g_window_len)
+{
+    if (g_pose_buffer.empty())
+        return false;
+
+    // 时间不在缓存范围内
+    if (t < g_pose_buffer.front().header.stamp || t > g_pose_buffer.back().header.stamp)
+        return false;
+
+    // 找最近邻
+    for (size_t i = 0; i + 1 < g_pose_buffer.size(); i++)
+    {
+        const auto &a = g_pose_buffer[i];
+        const auto &b = g_pose_buffer[i + 1];
+        if (a.header.stamp <= t && t <= b.header.stamp)
+        {
+            if ((t - a.header.stamp) < (b.header.stamp - t))
+                out = a;
+            else
+                out = b;
+            return true;
+        }
+    }
+
+    return false;
+}
