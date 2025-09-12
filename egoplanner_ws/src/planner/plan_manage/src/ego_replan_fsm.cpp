@@ -345,7 +345,6 @@ namespace ego_planner
                                         || grid_map->getInflateOccupancy(candidate_pos_back);
       if(!candidate_in_inflated_zone){
         target = candidate_pos;
-        target(2) = 1.0;
         ROS_INFO_THROTTLE(1.0, "Find safe target(terminal point) at (%.2f, %.2f, %.2f)", target(0), target(1), target(2));
         return true;
       }
