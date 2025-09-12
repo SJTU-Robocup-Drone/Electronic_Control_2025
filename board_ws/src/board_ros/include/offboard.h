@@ -96,6 +96,7 @@ extern bool adjust_has_target;
 
 extern int vision_bias_cnt;
 extern int target_index;
+extern int current_index;
 
 extern std_msgs::Int32 target_index_msg;
 
@@ -108,6 +109,8 @@ extern bool is_moving_target;
 extern bool is_param_set;
 
 extern double offset[3][2];
+
+extern double coordArray[7][2];
 
 extern const double threshold_distance;
 

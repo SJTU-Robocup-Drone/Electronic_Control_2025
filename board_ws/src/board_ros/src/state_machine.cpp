@@ -232,8 +232,10 @@ void searching(ros::Rate &rate)
     while (ros::ok())
     {
         ros::spinOnce();
+
+        // 如果ego-planner卡住了，放弃当前搜索点，同时暂时关闭导航
         if (is_stuck)
-        { // 如果ego-planner卡住了，放弃当前搜索点，同时暂时关闭导航
+        {
             ROS_WARN("Ego-planner is stuck. Trying navigating to last searching point and aborting current searching point...");
             searching_points[searching_index].z = -1;
             retry_points.push(searching_points[searching_index]);// 存入重试队列
@@ -242,6 +244,14 @@ void searching(ros::Rate &rate)
             break;
         }
 
+        // 扫描到随机靶就立刻退出搜索状态并进行投弹
+        if(coordArray[6][0] != -100 && coordArray[6][0] != -50 && target_pose.pose.position.z != -1){
+            ROS_INFO("Find random target, immediately turning into bomb navigating...");
+            mission_state = BOMB_NAVIGATING;
+            break;
+        }
+
+        // 到点后退出搜索状态
         if (distance(current_pose, nav_pose.pose.position) < threshold_distance)
         {
             ROS_INFO("Reached searching point %d.", searching_index + 1);
@@ -382,6 +392,9 @@ void bombing(ros::Rate &rate)
             ser.write(command);
             ROS_INFO_STREAM("Sent command to servo" << target_index + 1 << ": " << command);
             isBombed = true;
+            // 标记当前目标为已投掷
+            coordArray[current_index][0] = -50;
+            coordArray[current_index][1] = -50;
         }
         rate.sleep();
     }
