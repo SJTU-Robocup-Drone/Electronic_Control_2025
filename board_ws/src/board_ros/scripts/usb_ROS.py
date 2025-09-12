@@ -12,8 +12,6 @@ import cv2
 from nav_msgs.msg import Odometry
 from utils.augmentations import letterbox
 from utils.general import non_max_suppression
-import os
-from datetime import datetime
 
 # 视觉处理频率 帧/秒
 vision_rate=30  
@@ -23,15 +21,10 @@ scanning_active = False
 detection_thread = None
 stop_event = threading.Event()
 
-# 视频录制控制
-recording_active = False
-video_writer = None
-video_save_path = "/home/amov/detection_videos/"
-
 # 初始化滑动平均缓存
 items = [
     ["bridge", 0, []], ["bunker", 0, []], ["car", 0, []],
-    ["Helicopter", 0, []], ["tank", 0, []], ["tent", 0, []],["red", 0, []]
+    ["Helicopter", 0, []], ["tank", 0, []], ["tent", 0, []], ["red", 0, []]
 ]
 
 # 相机内参矩阵 - 需要根据实际相机进行标定
@@ -40,6 +33,7 @@ camera_matrix = np.array([
     [0, 677.2838, 359.0183],      # 0, fy, cy    cx,cy为光心  需校准
     [0, 0, 1.0]             # 0, 0, 1
 ], dtype=np.float32)    # 这里指定数据类型为32位浮点数
+
 
 desired_width = 1280
 desired_height = 720
@@ -84,44 +78,11 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
     coords[:, :4] = coords[:, :4].clamp(min=0)
     return coords
 
-def init_video_writer():
-    """初始化视频写入器"""
-    global video_writer, video_save_path
-    
-    # 确保保存目录存在
-    if not os.path.exists(video_save_path):
-        os.makedirs(video_save_path)
-        rospy.loginfo(f"[INFO] 创建视频保存目录: {video_save_path}")
-    
-    # 生成带时间戳的文件名
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    video_filename = f"detection_video_{timestamp}.avi"
-    video_path = os.path.join(video_save_path, video_filename)
-    
-    # 初始化视频写入器
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')  # 可以改为 'MP4V' 或其他编码器
-    video_writer = cv2.VideoWriter(video_path, fourcc, desired_fps, (desired_width, desired_height))
-    
-    if video_writer.isOpened():
-        rospy.loginfo(f"[INFO] 视频录制开始，保存路径: {video_path}")
-        return True
-    else:
-        rospy.logerr(f"[ERROR] 无法初始化视频写入器: {video_path}")
-        return False
-
-def release_video_writer():
-    """释放视频写入器"""
-    global video_writer
-    if video_writer is not None:
-        video_writer.release()
-        video_writer = None
-        rospy.loginfo("[INFO] 视频录制结束，文件已保存")
-
 def detect_targets():
-    global detection_pub, odom_pos, video_writer, recording_active
+    global detection_pub, odom_pos
 
     # 初始化 YOLO 模型
-    model_path = '/home/amov/board_ws/src/board_ros/scripts/best_0909.pt'
+    model_path = '/home/amov/board_ws/src/board_ros/scripts/best_0801.pt'
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     rospy.loginfo("[INFO] 加载模型中...")
     model = torch.load(model_path, map_location=device)['model'].float()
@@ -141,6 +102,7 @@ def detect_targets():
     # color_intrinsics = profile.get_stream(rs.stream.color).as_video_stream_profile().get_intrinsics()
     # align = rs.align(rs.stream.color)
 
+
     cap = cv2.VideoCapture(0)  # 打开默认摄像头
     
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, desired_width)
@@ -152,25 +114,18 @@ def detect_targets():
         exit()
     print("[INFO] 摄像头已打开。")
 
-    # 初始化视频录制
-    recording_active = True
-    if not init_video_writer():
-        recording_active = False
-
     frame_count = 0
     try:
         while scanning_active and not stop_event.is_set() and not rospy.is_shutdown():
             start_time = time.time()
             frame_count += 1
             
+
             ret, frames = cap.read()
             if not ret:
                 print("无法读取帧")
                 break
 
-            # 保存原始帧到视频文件
-            if recording_active and video_writer is not None:
-                video_writer.write(frames)
             
             # color_image = np.asanyarray(cv2.cvtColor(frames, cv2.COLOR_BGR2RGB))#转换为numpy数组
             color_image = np.asanyarray(frames)#转换为numpy数组
@@ -202,8 +157,8 @@ def detect_targets():
                     cx = camera_matrix[0, 2]  # 主点x坐标
                     cy = camera_matrix[1, 2]  # 主点y坐标
 
-                    x = -((x_found - cx) / fx * camera_height)
-                    y = -((y_found - cy) / fy * camera_height)
+                    x = (x_found - cx) / fx * camera_height
+                    y = (y_found - cy) / fy * camera_height
                     z = camera_height  
 
                     class_id = int(cls)
@@ -221,17 +176,13 @@ def detect_targets():
                         
                         rospy.loginfo(f"检测到: {names[class_id]}, 坐标: X={x:.2f}, Y={y:.2f}, Z={z:.2f}, 置信度: {conf:.2f}")
 
+            
+
     except Exception as e:
         rospy.logerr(f"检测过程中出现错误: {e}")
     finally:
         cv2.destroyAllWindows()
         cap.release()
-        
-        # 停止视频录制
-        if recording_active:
-            release_video_writer()
-            recording_active = False
-        
         rospy.loginfo("[INFO] 已安全退出检测线程。")
 
 def vision_state_callback(msg):
@@ -271,9 +222,4 @@ if __name__ == "__main__":
         if scanning_active:
             stop_event.set()
             detection_thread.join(timeout=1.0)
-        
-        # 确保视频录制正常结束
-        if recording_active:
-            release_video_writer()
-        
         rospy.loginfo("[INFO] 节点已安全关闭。")
