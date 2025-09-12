@@ -24,7 +24,7 @@ stop_event = threading.Event()
 # 初始化滑动平均缓存
 items = [
     ["bridge", 0, []], ["bunker", 0, []], ["car", 0, []],
-    ["Helicopter", 0, []], ["tank", 0, []], ["tent", 0, []]
+    ["Helicopter", 0, []], ["tank", 0, []], ["tent", 0, []], ["car", 0, []]
 ]
 
 # 相机内参矩阵 - 需要根据实际相机进行标定
