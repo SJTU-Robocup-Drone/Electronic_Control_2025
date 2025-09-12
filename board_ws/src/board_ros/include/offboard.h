@@ -121,7 +121,12 @@ extern int searching_index;
 extern std::vector<geometry_msgs::Point> obstacle_zone_points;
 extern int obstacle_zone_index;
 
-extern std::queue<geometry_msgs::Point> retry_points;
+struct RetryPoint{
+    geometry_msgs::Point point;
+    int index;
+};
+extern std::queue<RetryPoint> retry_searching_points; // 针对searching点的重试队列
+extern std::queue<geometry_msgs::Point> retry_navigating_points; // 针对避障点的重试队列
 
 
 
