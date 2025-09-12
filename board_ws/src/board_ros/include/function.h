@@ -26,8 +26,7 @@ double distance(const geometry_msgs::PoseStamped &current_pose, const geometry_m
 
 void addPose(const geometry_msgs::PoseStamped &pose, std::deque<geometry_msgs::PoseStamped> g_pose_buffer, ros::Duration g_window_len);
 
-bool getPoseAt(const ros::Time &t, geometry_msgs::PoseStamped &out, std::deque<geometry_msgs::PoseStamped> g_pose_buffer, ros::Duration g_window_len);\
-
+bool getPoseAt(const ros::Time &t, geometry_msgs::PoseStamped &out, std::deque<geometry_msgs::PoseStamped> g_pose_buffer, ros::Duration g_window_len);
 
 struct FollowParams
 {
@@ -47,7 +46,6 @@ struct FollowParams
     double v_slow_cap = 2.0; // 掉头段限速（m/s），避免过冲
     double v_thresh = 0.3;   // 判定“速度很慢≈掉头中”的阈值
 };
-
 
 // 计算“正上方跟随”的速度控制指令：速度XY + 位置Z（高度保持）
 void computeOverheadVelocityCmd(const geometry_msgs::Vector3 &tgt_vel, // 目标速度（请从你的视觉/KF得到）

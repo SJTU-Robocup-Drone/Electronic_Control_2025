@@ -31,7 +31,7 @@ std::map<std::string, int> target_types = {
     {"red", 6}};
 
 // 目标坐标存储
-//double coordArray[7][2] = {{-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}};
+// double coordArray[7][2] = {{-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}};
 extern Target targetArray[7];
 
 void pose_cb(const nav_msgs::Odometry::ConstPtr &msg)

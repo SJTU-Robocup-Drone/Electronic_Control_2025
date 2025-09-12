@@ -374,7 +374,7 @@ bool getPoseAt(const ros::Time &t, geometry_msgs::PoseStamped &out, std::deque<g
             ROS_INFO("Time too late");
         return false;
     }
-    
+
     // 找最近邻
     for (size_t i = 0; i + 1 < g_pose_buffer.size(); i++)
     {

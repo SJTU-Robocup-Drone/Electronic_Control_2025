@@ -144,96 +144,96 @@ namespace board_ros
             // 在端点 B 掉头驻留时间的不确定性（秒）。
         };
 
-    struct Config
-    {
-        LearnParams learn;
-        CycleParams cycle;
-        DropParams drop;
-        Uncertainty unc;
-    };
-
-    class TrackerDropper
-    {
-    public:
-        explicit TrackerDropper(const Config &cfg = Config());
-        void reset();
-
-        // 喂入实时小车位置（世界系）
-        void feed(const geometry_msgs::PoseStamped &ps);
-
-        // 是否已有有效模型
-        bool hasModel() const;
-
-        // 端点结果（A/B/u/L/valid）
-        Endpoints endpoints() const;
-
-        // 预测：下一次经过 A/B 的绝对时间戳（返回 false 表示模型未就绪）
-        bool predictPassTimes(ros::Time now, ros::Time &tA, ros::Time &tB) const;
-
-        // 计算当前所在端点（传该端点世界坐标）下的投弹时窗 [t_min, t_max]；可返回中心时刻
-        bool computeReleaseWindow(const Eigen::Vector2d &endpoint_pos,
-                                  ros::Time now,
-                                  std::pair<ros::Time, ros::Time> &window_out,
-                                  ros::Time *t_center_out = nullptr) const;
-
-        // 访问/修改配置
-        const Config &config() const;
-        void setConfig(const Config &cfg);
-
-    private:
-        struct Impl; // pimpl 隐藏实现
-        Impl *impl_;
-    };
-
-    // 发布端点：A=poses[0], B=poses[1]
-    inline void publish_endpoints_posearray(const Endpoints &ep,
-                                            const geometry_msgs::PoseStamped &ref_pose,
-                                            const std::string &topic = "/track/endpoints_posearray")
-    {
-        static ros::Publisher pub;
-        static std::string last_topic;
-        static bool inited = false;
-        if (!inited || topic != last_topic)
+        struct Config
         {
-            ros::NodeHandle nh;
-            pub = nh.advertise<geometry_msgs::PoseArray>(topic, 1, /*latch=*/true);
-            last_topic = topic;
-            inited = true;
+            LearnParams learn;
+            CycleParams cycle;
+            DropParams drop;
+            Uncertainty unc;
+        };
+
+        class TrackerDropper
+        {
+        public:
+            explicit TrackerDropper(const Config &cfg = Config());
+            void reset();
+
+            // 喂入实时小车位置（世界系）
+            void feed(const geometry_msgs::PoseStamped &ps);
+
+            // 是否已有有效模型
+            bool hasModel() const;
+
+            // 端点结果（A/B/u/L/valid）
+            Endpoints endpoints() const;
+
+            // 预测：下一次经过 A/B 的绝对时间戳（返回 false 表示模型未就绪）
+            bool predictPassTimes(ros::Time now, ros::Time &tA, ros::Time &tB) const;
+
+            // 计算当前所在端点（传该端点世界坐标）下的投弹时窗 [t_min, t_max]；可返回中心时刻
+            bool computeReleaseWindow(const Eigen::Vector2d &endpoint_pos,
+                                      ros::Time now,
+                                      std::pair<ros::Time, ros::Time> &window_out,
+                                      ros::Time *t_center_out = nullptr) const;
+
+            // 访问/修改配置
+            const Config &config() const;
+            void setConfig(const Config &cfg);
+
+        private:
+            struct Impl; // pimpl 隐藏实现
+            Impl *impl_;
+        };
+
+        // 发布端点：A=poses[0], B=poses[1]
+        inline void publish_endpoints_posearray(const Endpoints &ep,
+                                                const geometry_msgs::PoseStamped &ref_pose,
+                                                const std::string &topic = "/track/endpoints_posearray")
+        {
+            static ros::Publisher pub;
+            static std::string last_topic;
+            static bool inited = false;
+            if (!inited || topic != last_topic)
+            {
+                ros::NodeHandle nh;
+                pub = nh.advertise<geometry_msgs::PoseArray>(topic, 1, /*latch=*/true);
+                last_topic = topic;
+                inited = true;
+            }
+
+            geometry_msgs::PoseArray pa;
+            pa.header = ref_pose.header; // 带上 frame_id 和时间
+            pa.poses.resize(2);
+            pa.poses[0].position.x = ep.A.x();
+            pa.poses[0].position.y = ep.A.y();
+            pa.poses[1].position.x = ep.B.x();
+            pa.poses[1].position.y = ep.B.y();
+            pub.publish(pa);
         }
 
-        geometry_msgs::PoseArray pa;
-        pa.header = ref_pose.header; // 带上 frame_id 和时间
-        pa.poses.resize(2);
-        pa.poses[0].position.x = ep.A.x();
-        pa.poses[0].position.y = ep.A.y();
-        pa.poses[1].position.x = ep.B.x();
-        pa.poses[1].position.y = ep.B.y();
-        pub.publish(pa);
-    }
-
-    // 发布方向：单位向量 u（A->B）
-    inline void publish_direction_u(const Endpoints &ep,
-                                    const geometry_msgs::PoseStamped &ref_pose,
-                                    const std::string &topic = "/track/endpoints_dir")
-    {
-        static ros::Publisher pub;
-        static std::string last_topic;
-        static bool inited = false;
-        if (!inited || topic != last_topic)
+        // 发布方向：单位向量 u（A->B）
+        inline void publish_direction_u(const Endpoints &ep,
+                                        const geometry_msgs::PoseStamped &ref_pose,
+                                        const std::string &topic = "/track/endpoints_dir")
         {
-            ros::NodeHandle nh;
-            pub = nh.advertise<geometry_msgs::Vector3Stamped>(topic, 1, /*latch=*/true);
-            last_topic = topic;
-            inited = true;
+            static ros::Publisher pub;
+            static std::string last_topic;
+            static bool inited = false;
+            if (!inited || topic != last_topic)
+            {
+                ros::NodeHandle nh;
+                pub = nh.advertise<geometry_msgs::Vector3Stamped>(topic, 1, /*latch=*/true);
+                last_topic = topic;
+                inited = true;
+            }
+
+            geometry_msgs::Vector3Stamped vs;
+            vs.header = ref_pose.header;
+            vs.vector.x = ep.u.x();
+            vs.vector.y = ep.u.y();
+            vs.vector.z = 0.0;
+            pub.publish(vs);
         }
 
-        geometry_msgs::Vector3Stamped vs;
-        vs.header = ref_pose.header;
-        vs.vector.x = ep.u.x();
-        vs.vector.y = ep.u.y();
-        vs.vector.z = 0.0;
-        pub.publish(vs);
     }
-
-}
 } // namespace board_ros::track
