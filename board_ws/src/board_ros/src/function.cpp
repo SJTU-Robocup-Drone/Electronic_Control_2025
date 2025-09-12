@@ -20,6 +20,8 @@ std::vector<geometry_msgs::Point> obstacle_zone_points;
 std::queue<RetryPoint> retry_searching_points; // 针对searching点的重试队列
 std::queue<geometry_msgs::Point> retry_navigating_points; // 针对避障点的重试队列
 
+Target targetArray[7]; // 储存靶标信息的数组
+
 void hovering(float z, float time, bool if_exit, ros::Rate &rate)
 {
     last_request = ros::Time::now();
@@ -125,6 +127,16 @@ void init_params(ros::NodeHandle &nh)
         obstacle_zone_points.push_back(createPoint(point[0],point[1],point[2]));
     }
 
+    // 新增功能：设置是否需要投弹
+    for(int i = 0; i < 7; ++i){
+        int isNeedForBomb;
+            std::getline(infile,line);
+            pos1 = line.find("= ");
+            pos2 = line.find(';');
+            valid_str = line.substr(pos1 + 1,pos2 - pos1 - 1);
+            isNeedForBomb = stoi(valid_str);
+        targetArray[i].isNeedForBomb = (isNeedForBomb == 1);
+    }
     infile.close();
 
     // std::vector<double> searching_x_points, searching_y_points, searching_z_points;

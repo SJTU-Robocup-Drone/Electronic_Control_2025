@@ -21,5 +21,12 @@ obstacle zone point 1 z = 1.0;
 obstacle zone point 1 x = 8.55;
 obstacle zone point 1 y = 3.3;
 obstacle zone point 1 z = 1.0;
+target 0 (tent) = 1;
+target 1 (bunker) = 1;
+target 2 (bridge) = 1;
+target 3 (car) = 1;
+target 4 (tank) = 1;
+target 5 (Helicopter) = 1;
+target 6 (red) = 1;
 
 # 注：在等号后面要打一个空格，输完数字后要打一个分号，这是格式要求！

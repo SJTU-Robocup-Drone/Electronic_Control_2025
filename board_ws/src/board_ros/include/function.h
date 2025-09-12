@@ -11,6 +11,8 @@ extern std::vector<geometry_msgs::Point> obstacle_zone_points;
 
 extern std::queue<RetryPoint> retry_searching_points;            // 针对searching点的重试队列
 extern std::queue<geometry_msgs::Point> retry_navigating_points; // 针对避障点的重试队列
+
+extern Target targetArray[7];
 // 参数提取（写入 searching_points / obstacle_zone_points）
 void init_params(ros::NodeHandle &nh);
 // 悬停

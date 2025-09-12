@@ -31,7 +31,8 @@ std::map<std::string, int> target_types = {
     {"red", 6}};
 
 // 目标坐标存储
-double coordArray[7][2] = {{-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}};
+//double coordArray[7][2] = {{-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}};
+extern Target targetArray[7];
 
 void pose_cb(const nav_msgs::Odometry::ConstPtr &msg)
 {
@@ -104,10 +105,11 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
         // double global_y = coordY + drone_x * sin(yaw) + drone_y * cos(yaw);
 
         // 只更新未投掷的目标
-        if (coordArray[type][0] != -50)
+        if (!targetArray[type].isBombed)
         {
-            coordArray[type][0] = global_x;
-            coordArray[type][1] = global_y;
+            targetArray[type].x = global_x;
+            targetArray[type].y = global_y;
+            targetArray[type].isValid = true;
             ROS_INFO("Drone YPR:(%.2F,%.2f,%.2f)", yaw, pitch, roll);
             ROS_INFO("Refreshing target %s, relative coord: (%.2f, %.2f),at %f", target_name.c_str(), global_x, global_y, target_pose.header.stamp.toSec());
             ROS_INFO("Relevant target at : (%.2f, %.2f) ", drone_x, drone_y);
@@ -123,7 +125,7 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
 // 为了让无人机能在扫到随机靶的那一刻就去投它，单独处理随机靶
 void random_target_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
 {
-    if (coordArray[6][0] == -50)
+    if (targetArray[6].isBombed)
         return;        // 已经投过随机靶就不需要更新了
     current_index = 6; // 随机靶的索引为6
     // 定义相机系
@@ -145,8 +147,9 @@ void random_target_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
     // 平移到无人机当前位置
     double global_x = coordX + global.x();
     double global_y = coordY + global.y();
-    coordArray[6][0] = global_x;
-    coordArray[6][1] = global_y;
+    targetArray[6].x = global_x;
+    targetArray[6].y = global_y;
+    targetArray[6].isValid = true;
     ROS_INFO("Received random target at (%.2f, %.2f)", global_x, global_y);
     // ADJUSTING阶段刷新标志位
     if (mission_state == ADJUSTING)
@@ -159,14 +162,14 @@ void process_target_cb()
     if (is_returning)
     {
         // 返航阶段：寻找降落区
-        if (coordArray[5][0] != -100 && coordArray[5][0] != -50)
+        if (targetArray[5].isValid && !targetArray[5].isBombed)
         {
             is_found = true;
-            ROS_INFO("Landing area found at: (%.2f, %.2f)", coordArray[5][0], coordArray[5][1]);
+            ROS_INFO("Landing area found at: (%.2f, %.2f)", targetArray[5].x, targetArray[5].y);
 
             target_pose.header.frame_id = "map";
-            target_pose.pose.position.x = coordArray[5][0];
-            target_pose.pose.position.y = coordArray[5][1];
+            target_pose.pose.position.x = targetArray[5].x;
+            target_pose.pose.position.y = targetArray[5].y;
             target_pose.pose.position.z = 0.9;
 
             current_index = 5;
@@ -178,26 +181,26 @@ void process_target_cb()
         for (int i = 4; i >= 0; i--)
         {
             // 如果扫描到了随机靶而且没有投过随机靶，就投随机靶
-            if (coordArray[6][0] != -100 && coordArray[6][0] != -50)
+            if (targetArray[6].isNeedForBomb && targetArray[6].isValid && !targetArray[6].isBombed)
             {
                 is_found = true;
 
                 target_pose.header.frame_id = "map";
-                target_pose.pose.position.x = coordArray[6][0];
-                target_pose.pose.position.y = coordArray[6][1];
+                target_pose.pose.position.x = targetArray[6].x;
+                target_pose.pose.position.y = targetArray[6].y;
                 target_pose.pose.position.z = 0.9;
                 break;
             }
 
-            if (coordArray[i][0] != -100 && coordArray[i][0] != -50)
+            if (targetArray[i].isNeedForBomb && targetArray[i].isValid && !targetArray[i].isBombed)
             {
                 is_found = true;
 
                 target_pose.header.frame_id = "map";
-                target_pose.pose.position.x = coordArray[i][0];
-                target_pose.pose.position.y = coordArray[i][1];
-                if (i != 0 || is_done)
-                    target_pose.pose.position.z = 0.9;
+                target_pose.pose.position.x = targetArray[i].x;
+                target_pose.pose.position.y = targetArray[i].y;
+                if ((i != 0 && i != 1 && i != 2) || is_done)
+                    target_pose.pose.position.z = 0.9; // 只有searching结束 才会去考虑后三个低分靶标
 
                 break;
             }
