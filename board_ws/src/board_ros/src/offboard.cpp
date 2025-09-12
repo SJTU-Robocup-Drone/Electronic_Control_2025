@@ -9,8 +9,8 @@ int main(int argc, char **argv)
     // ROS 节点初始化
     ros::init(argc, argv, "offb_node");
     ros::NodeHandle nh;
-    ros::Rate rate(20);
-    ros::Rate high_rate(30);
+    ros::Rate rate(30);
+    ros::Rate high_rate(100);
     // 视觉初值
     target_pose.pose.position.z = -1;
 
@@ -75,7 +75,7 @@ int main(int argc, char **argv)
         }
         case BOMBING:
         {
-            bombing(rate);
+            bombing(high_rate);
             break;
         }
         case OBSTACLE_AVOIDING:
@@ -95,7 +95,7 @@ int main(int argc, char **argv)
         }
         case FOLLOWING:
         {
-            following(high_rate);
+            following(rate);
             break;
         }
         case RETURNING:
@@ -105,7 +105,7 @@ int main(int argc, char **argv)
         }
         case DETECTING:
         {
-            detecting(high_rate);
+            detecting(rate);
             break;
         }
         }

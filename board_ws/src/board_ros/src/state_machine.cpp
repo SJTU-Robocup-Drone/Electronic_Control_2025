@@ -327,7 +327,8 @@ void adjusting(ros::Rate &rate)
     vision_state_msg.data = true; // 开启视觉扫描
     adjust_has_target = false;
     ROS_INFO("2nd time of visual scanning...");
-    hovering(0.7, 10, true, rate);
+    hovering(0.6, 2, false, rate);
+    hovering(0.6, 8, true, rate);
     vision_state_msg.data = false; // 关闭视觉扫描
 
     pose.header.frame_id = "map";
@@ -353,7 +354,7 @@ void adjusting(ros::Rate &rate)
     }
     else
     {
-        set_and_pub_pose(target_pose.pose.position.x, target_pose.pose.position.y, current_pose.pose.position.z);
+        set_and_pub_pose(target_pose.pose.position.x, target_pose.pose.position.y, 0.6);
     }
     ROS_INFO("Adjusting position to target...");
     // 临时减小距离阈值，并预先调整姿态
@@ -363,7 +364,7 @@ void adjusting(ros::Rate &rate)
         ros::spinOnce();
         pose.header.stamp = ros::Time::now();
         vision_state_pub.publish(vision_state_msg);
-        set_and_pub_pose(target_pose.pose.position.x, target_pose.pose.position.y, current_pose.pose.position.z);
+        set_and_pub_pose(target_pose.pose.position.x, target_pose.pose.position.y, 0.6);
         ROS_INFO_THROTTLE(1.0, "Adjusting to (%.2f, %.2f)...", pose.pose.position.x, pose.pose.position.y);
         rate.sleep();
     }
