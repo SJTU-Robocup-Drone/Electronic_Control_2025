@@ -5,7 +5,6 @@
 std::deque<TimedPose> history_;
 const size_t MAX_HISTORY = 10; // 缓冲 10 帧
 
-bool is_bombing = false;
 bool is_returning = false;
 bool is_done = false;
 bool is_found = false;
@@ -24,10 +23,11 @@ std::map<std::string, int> target_types = {
     {"bridge", 2},
     {"car", 3},
     {"tank", 4},
-    {"Helicopter", 5}};
+    {"Helicopter", 5},
+    {"red", 6}};
 
 // 目标坐标存储
-double coordArray[6][2] = {{-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}};
+double coordArray[7][2] = {{-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}, {-100, -100}};
 
 void pose_cb(const nav_msgs::Odometry::ConstPtr &msg)
 {
@@ -35,11 +35,6 @@ void pose_cb(const nav_msgs::Odometry::ConstPtr &msg)
     current_pose.pose = msg->pose.pose;
     coordX = current_pose.pose.position.x;
     coordY = current_pose.pose.position.y;
-}
-
-void man_check_cb(const std_msgs::Int32::ConstPtr &msg)
-{
-    is_bombing = true;
 }
 
 void return_state_cb(const std_msgs::Bool::ConstPtr &msg)
@@ -55,6 +50,7 @@ void is_done_cb(const std_msgs::Bool::ConstPtr &msg)
 // 接收视觉节点发的相对目标坐标并转化为全局坐标
 void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
 {
+    if(!vision_state_msg.data) return; // 如果不是扫描状态，忽略这个话题的信息
     target_pose.header.stamp = msg->header.stamp; // 记录消息时间戳
     std::string target_name = msg->header.frame_id;
     double rel_x = msg->point.x;
@@ -65,6 +61,9 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
     if (it != target_types.end())
     {
         int type = it->second;
+
+        // 更新当前目标索引
+        current_index = type;
 
         // 定义机体系x，y
         double drone_x = -rel_y;
@@ -95,6 +94,37 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
             ROS_INFO("y=%.2f", current_pose.pose.position.y);
         }
     }
+    // ADJUSTING阶段刷新标志位
+    if (mission_state == ADJUSTING) adjust_has_target = true;
+}
+
+// 为了让无人机能在扫到随机靶的那一刻就去投它，单独处理随机靶
+void random_target_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
+{
+    if(coordArray[6][0] == -50) return; // 已经投过随机靶就不需要更新了
+    current_index = 6; // 随机靶的索引为6
+    // 定义相机系
+    double rel_x = msg->point.x;
+    double rel_y = msg->point.y;
+    // 定义机体系x，y
+    double drone_x = -rel_y;
+    double drone_y = -rel_x;
+    // 获取无人机偏航角
+    double yaw, pitch, roll;
+    tf2::getEulerYPR(current_pose.pose.orientation, yaw, pitch, roll);
+
+    tf2::Matrix3x3 R;
+    R.setRPY(roll, pitch, yaw); // 注意顺序是 RPY = (roll, pitch, yaw)
+
+    tf2::Vector3 local(drone_x, drone_y, 0.0);
+    tf2::Vector3 global = R * local;
+
+    // 平移到无人机当前位置
+    double global_x = coordX + global.x();
+    double global_y = coordY + global.y();
+    coordArray[6][0] = global_x;
+    coordArray[6][1] = global_y;
+    ROS_INFO("Received random target at (%.2f, %.2f)", global_x, global_y);
 }
 
 // 定时遍历目标数组并根据其中的数据更新target_pose
@@ -111,7 +141,7 @@ void process_target_cb()
             target_pose.header.frame_id = "map";
             target_pose.pose.position.x = coordArray[5][0];
             target_pose.pose.position.y = coordArray[5][1];
-            target_pose.pose.position.z = 1.0;
+            target_pose.pose.position.z = 0.9;
 
             current_index = 5;
         }
@@ -121,6 +151,17 @@ void process_target_cb()
         // 投弹阶段：按优先级选择目标
         for (int i = 4; i >= 0; i--)
         {
+            // 如果扫描到了随机靶而且没有投过随机靶，就投随机靶
+            if (coordArray[6][0] != -100 && coordArray[6][0] != -50){
+                is_found = true;
+
+                target_pose.header.frame_id = "map";
+                target_pose.pose.position.x = coordArray[6][0];
+                target_pose.pose.position.y = coordArray[6][1];
+                target_pose.pose.position.z = 0.9;
+                break;
+            }
+
             if (coordArray[i][0] != -100 && coordArray[i][0] != -50)
             {
                 is_found = true;
@@ -128,9 +169,8 @@ void process_target_cb()
                 target_pose.header.frame_id = "map";
                 target_pose.pose.position.x = coordArray[i][0];
                 target_pose.pose.position.y = coordArray[i][1];
-                target_pose.pose.position.z = 1.0;
+                if(i != 0 || is_done) target_pose.pose.position.z = 0.9;
 
-                current_index = i;
                 break;
             }
         }
@@ -138,18 +178,10 @@ void process_target_cb()
 
     if (!is_found)
     {
-        target_pose.header.frame_id = "map";
         target_pose.pose.position.z = -1;
         is_found = false;
     }
 
-    if (is_bombing)
-    {
-        // 标记当前目标为已投掷
-        coordArray[current_index][0] = -50;
-        coordArray[current_index][1] = -50;
-        is_bombing = false;
-    }
     receive_target();
 }
 
@@ -187,7 +219,6 @@ void receive_target()
         else
             vision_bias_cnt = 0;
         last_target_point = target_pose.pose.position;
-        adjust_has_target = true;
     }
 }
 

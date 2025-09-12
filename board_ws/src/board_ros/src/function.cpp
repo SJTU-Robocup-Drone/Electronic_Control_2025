@@ -37,7 +37,7 @@ void hovering(float z, float time, bool if_exit, ros::Rate &rate)
         if (if_exit == true)
         {
             vision_state_pub.publish(vision_state_msg);
-            if (target_pose.pose.position.z != -1)
+            if ((target_pose.pose.position.z != -1 && mission_state != ADJUSTING) || (adjust_has_target && mission_state == ADJUSTING))
                 break;
         }
     }

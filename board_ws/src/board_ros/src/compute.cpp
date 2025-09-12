@@ -422,7 +422,7 @@ namespace board_ros
                 }
             }
 
-            
+
             bool predictPassTimes(ros::Time now, ros::Time &tA, ros::Time &tB) const
             {
                 if (!model_ready || !ep.valid)

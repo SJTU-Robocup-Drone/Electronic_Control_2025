@@ -1,6 +1,7 @@
 #include "communication.h"
 #include "function.h"
 #include "vision.h"
+#include "offboard.h"
 
 // 定义话题服务
 ros::Publisher local_pos_pub;
@@ -14,6 +15,7 @@ ros::Publisher param_set_pub;
 ros::Publisher manba_pub;
 ros::Publisher target_pub;
 
+ros::Subscriber random_target_sub;
 ros::Subscriber target_sub;
 ros::Subscriber local_pos_sub;
 ros::Subscriber state_sub;
@@ -90,8 +92,8 @@ void init_nav_interfaces(ros::NodeHandle &nh)
     local_pos_sub = nh.subscribe<nav_msgs::Odometry>("/odom_high_freq", 10, pose_cb);
     state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, state_cb);
     nav_check_sub = nh.subscribe<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 50, nav_check_cb);
+    random_target_sub = nh.subscribe<geometry_msgs::PointStamped>("/random_target", 10, random_target_cb);
     target_sub = nh.subscribe<geometry_msgs::PoseStamped>("/target", 10, target_cb);
-    man_check_sub = nh.subscribe<std_msgs::Int32>("/manba_input", 10, man_check_cb);
     return_state_sub = nh.subscribe<std_msgs::Bool>("/return_state", 10, return_state_cb);
     is_done_sub = nh.subscribe<std_msgs::Bool>("/done_state", 10, is_done_cb);
     detection_sub = nh.subscribe<geometry_msgs::PointStamped>("/detection_results", 10, detection_cb);
@@ -102,4 +104,19 @@ void init_nav_interfaces(ros::NodeHandle &nh)
 
     process_target_timer = nh.createTimer(ros::Duration(0.02), [](const ros::TimerEvent &)
                                           { process_target_cb(); });
+    portName = "/dev/ttyUSB1"; // 连接esp32的串口名
+    baudrate = 115200; // 串口波特率
+    try {
+        ser.setPort(portName);
+        ser.setBaudrate(baudrate);
+        serial::Timeout to = serial::Timeout::simpleTimeout(1000);
+        ser.setTimeout(to);
+        ser.open();
+    } catch (serial::IOException& e) {
+        ROS_ERROR_STREAM("Unable to open port " << portName);
+    }
+
+    if (ser.isOpen()) {
+        ROS_INFO_STREAM("Serial port initialized: " << portName);
+    } 
 }

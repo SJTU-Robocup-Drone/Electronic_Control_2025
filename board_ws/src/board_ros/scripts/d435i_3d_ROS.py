@@ -23,7 +23,7 @@ stop_event = threading.Event()
 # 初始化滑动平均缓存
 items = [
     ["bridge", 0, []], ["bunker", 0, []], ["car", 0, []],
-    ["Helicopter", 0, []], ["tank", 0, []], ["tent", 0, []]
+    ["Helicopter", 0, []], ["tank", 0, []], ["tent", 0, []], ["car", 0, []]
 ]
 
 # 坐标发布器
