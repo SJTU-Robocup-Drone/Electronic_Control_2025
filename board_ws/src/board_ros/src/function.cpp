@@ -17,7 +17,8 @@ geometry_msgs::Point createPoint(double x, double y, double z) {
 // 定义点集（会在全局范围内用到）
 std::vector<geometry_msgs::Point> searching_points;
 std::vector<geometry_msgs::Point> obstacle_zone_points;
-std::queue<geometry_msgs::Point> retry_points;
+std::queue<RetryPoint> retry_searching_points; // 针对searching点的重试队列
+std::queue<geometry_msgs::Point> retry_navigating_points; // 针对避障点的重试队列
 
 void hovering(float z, float time, bool if_exit, ros::Rate &rate)
 {

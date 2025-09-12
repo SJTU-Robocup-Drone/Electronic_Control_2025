@@ -171,13 +171,13 @@ void searching(ros::Rate &rate)
         return;
     }
     bool isRetrying = false;// 表示这一次searching是不是在重试之前卡住的点
-    geometry_msgs::Point retry_point;
+    RetryPoint retry_point;// 重试点结构体，包含了坐标&在searching_points中的索引
     if (!is_stuck)
     { // 上一次没有被卡住
-        if(retry_points.size() > 0){ // 存在需要重试的点
-            retry_point = retry_points.front();
-            retry_points.pop();
-            // TODO：把发布的导航点设为retry_point，而非searching_points[searching_index]
+        if(retry_searching_points.size() > 0){ // 存在需要重试的点
+            retry_point = retry_searching_points.front();
+            searching_index = retry_point.index; // 将索引重置为重试点对应的索引值
+            retry_searching_points.pop();
             isRetrying = true;
         }
         else{
@@ -223,7 +223,7 @@ void searching(ros::Rate &rate)
     }
     else{// 导航前往重试点
         // 发布航点,更新导航时间
-        set_and_pub_nav(retry_point.x, retry_point.y, retry_point.z);
+        set_and_pub_nav(retry_point.point.x, retry_point.point.y, retry_point.point.z);
 
         // 轨迹跟踪与检查
         ROS_INFO("Searching for a retrying point...");
@@ -232,26 +232,21 @@ void searching(ros::Rate &rate)
     while (ros::ok())
     {
         ros::spinOnce();
-
-        // 如果ego-planner卡住了，放弃当前搜索点，同时暂时关闭导航
         if (is_stuck)
-        {
+        { // 如果ego-planner卡住了，放弃当前搜索点，同时暂时关闭导航
             ROS_WARN("Ego-planner is stuck. Trying navigating to last searching point and aborting current searching point...");
             searching_points[searching_index].z = -1;
-            retry_points.push(searching_points[searching_index]);// 存入重试队列
+            if(!isRetrying) {
+                RetryPoint retry_point;
+                retry_point.point = searching_points[searching_index];
+                retry_point.index = searching_index;
+                retry_searching_points.push(retry_point);
+            }// 如果没被重试过，那就存入重试队列
             nav_state_msg.data = false;
             nav_state_pub.publish(nav_state_msg);
             break;
         }
 
-        // 扫描到随机靶就立刻退出搜索状态并进行投弹
-        if(coordArray[6][0] != -100 && coordArray[6][0] != -50 && target_pose.pose.position.z != -1){
-            ROS_INFO("Find random target, immediately turning into bomb navigating...");
-            mission_state = BOMB_NAVIGATING;
-            break;
-        }
-
-        // 到点后退出搜索状态
         if (distance(current_pose, nav_pose.pose.position) < threshold_distance)
         {
             ROS_INFO("Reached searching point %d.", searching_index + 1);
@@ -278,13 +273,24 @@ void bomb_navigating(ros::Rate &rate)
 {
     // ROS_INFO("Hovering before navigating...");
     // hovering(0.9, 5, false, rate);
+    bool isRetrying = false;// 表示这一次bomb_navigating是不是在重试之前卡住的点
+    if(retry_navigating_points.size() > 0){ // 存在需要重试的点
+        geometry_msgs::Point retry_point = retry_navigating_points.front();
+        retry_navigating_points.pop();
+        isRetrying = true;
 
-    // 发布航点并更新导航时间,初始化第一个和上一个靶标点
-    set_and_pub_nav(target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
-    first_target_point = nav_pose.pose.position;
-    last_target_point = nav_pose.pose.position;
-    ROS_INFO("Navigating to target at (%.2f, %.2f, %.2f)", target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
-
+        set_and_pub_nav(retry_point.x, retry_point.y, retry_point.z);
+        first_target_point = nav_pose.pose.position;
+        last_target_point = nav_pose.pose.position;
+        ROS_INFO("Retrying navigating to retry point...");
+    }else{
+        // 发布航点并更新导航时间,初始化第一个和上一个靶标点
+        set_and_pub_nav(target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
+        first_target_point = nav_pose.pose.position;
+        last_target_point = nav_pose.pose.position;
+        ROS_INFO("Navigating to target at (%.2f, %.2f, %.2f)", target_pose.pose.position.x, target_pose.pose.position.y, target_pose.pose.position.z);
+    }
+    
     // 轨迹跟踪与检查
     while (ros::ok() && distance(current_pose, nav_pose.pose.position) > threshold_distance)
     {
@@ -296,8 +302,11 @@ void bomb_navigating(ros::Rate &rate)
             ROS_WARN("Ego-planner is stuck. Trying navigating to last searching point and aborting current searching point...");
             mission_state = SEARCHING;
             searching_points[searching_index].z = -1;
+            // 为什么bomb_navigating卡住了要放弃searching_points？是不是有BUG
             nav_state_msg.data = false;
             nav_state_pub.publish(nav_state_msg);
+
+            if(!isRetrying) retry_navigating_points.push(nav_pose.pose.position); // 将当前导航点存入重试队列
             break;
         }
 
