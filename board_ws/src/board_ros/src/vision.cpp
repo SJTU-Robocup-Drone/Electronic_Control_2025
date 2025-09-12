@@ -125,6 +125,8 @@ void random_target_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
     coordArray[6][0] = global_x;
     coordArray[6][1] = global_y;
     ROS_INFO("Received random target at (%.2f, %.2f)", global_x, global_y);
+    // ADJUSTING阶段刷新标志位
+    if (mission_state == ADJUSTING) adjust_has_target = true;
 }
 
 // 定时遍历目标数组并根据其中的数据更新target_pose

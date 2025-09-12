@@ -296,10 +296,10 @@ def vision_state_callback(msg):
         detection_thread.daemon = True
         detection_thread.start()
 
-    elif not msg.data and scanning_active:
-        rospy.loginfo("[INFO] 收到视觉停止指令，停止扫描...")
-        stop_event.set()
-        scanning_active = False
+    # elif not msg.data and scanning_active:
+    #     rospy.loginfo("[INFO] 收到视觉停止指令，停止扫描...")
+    #     stop_event.set()
+    #     scanning_active = False
 
 def odom_callback(msg):
     global odom_pos
