@@ -107,6 +107,8 @@ extern ros::Time nav_request;
 extern bool is_takeoff;
 extern bool is_moving_target;
 extern bool is_param_set;
+extern bool is_retrying_searching_point;
+extern bool is_retrying_bombing_point;
 
 extern double offset[3][2];
 
@@ -128,6 +130,15 @@ struct RetryPoint{
 extern std::queue<RetryPoint> retry_searching_points; // 针对searching点的重试队列
 extern std::queue<geometry_msgs::Point> retry_navigating_points; // 针对避障点的重试队列
 
+// 靶标数组
+struct Target{
+    double x = -100;
+    double y = -100;
+    bool isValid = false;
+    bool isNeedForBomb = true;
+    bool isBombed = false;
+};
+extern Target targetArray[7];
 
 
 // 视觉历史缓冲

@@ -38,6 +38,8 @@ bool is_once_stuck = false;
 bool is_return = false;
 bool is_vision_right = true;
 bool adjust_has_target = false;
+bool is_retrying_searching_point = false;
+bool is_retrying_bombing_point = false;
 
 int vision_bias_cnt = 0;
 int target_index = 0;
@@ -171,7 +173,7 @@ void searching(ros::Rate &rate)
         mission_state = BOMB_NAVIGATING;
         return;
     }
-    bool isRetrying = false;// 表示这一次searching是不是在重试之前卡住的点
+    is_retrying_searching_point = false;// 表示这一次searching是不是在重试之前卡住的点
     RetryPoint retry_point;// 重试点结构体，包含了坐标&在searching_points中的索引
     if (!is_stuck)
     { // 上一次没有被卡住
@@ -179,7 +181,7 @@ void searching(ros::Rate &rate)
             retry_point = retry_searching_points.front();
             searching_index = retry_point.index; // 将索引重置为重试点对应的索引值
             retry_searching_points.pop();
-            isRetrying = true;
+            is_retrying_searching_point = true;
         }
         else{
             while (searching_points[searching_index].z == -1)
@@ -215,7 +217,8 @@ void searching(ros::Rate &rate)
     ROS_INFO("Hovering before navigating...");
     hovering(0.8, 5.0, false, rate);
 
-    if(!isRetrying){// 导航前往新的点
+    if (!is_retrying_searching_point)
+    { // 导航前往新的点
         // 发布航点,更新导航时间
         set_and_pub_nav(searching_points[searching_index].x, searching_points[searching_index].y, searching_points[searching_index].z);
 
@@ -237,7 +240,7 @@ void searching(ros::Rate &rate)
         { // 如果ego-planner卡住了，放弃当前搜索点，同时暂时关闭导航
             ROS_WARN("Ego-planner is stuck. Trying navigating to last searching point and aborting current searching point...");
             searching_points[searching_index].z = -1;
-            if(!isRetrying) {
+            if(!is_retrying_searching_point) {
                 RetryPoint retry_point;
                 retry_point.point = searching_points[searching_index];
                 retry_point.index = searching_index;
@@ -275,11 +278,11 @@ void bomb_navigating(ros::Rate &rate)
 {
     // ROS_INFO("Hovering before navigating...");
     // hovering(0.9, 5, false, rate);
-    bool isRetrying = false;// 表示这一次bomb_navigating是不是在重试之前卡住的点
+    is_retrying_bombing_point = false;// 表示这一次bomb_navigating是不是在重试之前卡住的点
     if(retry_navigating_points.size() > 0){ // 存在需要重试的点
         geometry_msgs::Point retry_point = retry_navigating_points.front();
         retry_navigating_points.pop();
-        isRetrying = true;
+        is_retrying_bombing_point = true;
 
         set_and_pub_nav(retry_point.x, retry_point.y, retry_point.z);
         first_target_point = nav_pose.pose.position;
@@ -308,7 +311,7 @@ void bomb_navigating(ros::Rate &rate)
             nav_state_msg.data = false;
             nav_state_pub.publish(nav_state_msg);
 
-            if(!isRetrying) retry_navigating_points.push(nav_pose.pose.position); // 将当前导航点存入重试队列
+            if(!is_retrying_bombing_point) retry_navigating_points.push(nav_pose.pose.position); // 将当前导航点存入重试队列
             break;
         }
 
@@ -415,8 +418,7 @@ void bombing(ros::Rate &rate)
             ROS_INFO_STREAM("Sent command to servo" << target_index + 1 << ": " << command);
             isBombed = true;
             // 标记当前目标为已投掷
-            coordArray[current_index][0] = -50;
-            coordArray[current_index][1] = -50;
+            targetArray[current_index].isBombed = true;
         }
         rate.sleep();
     }

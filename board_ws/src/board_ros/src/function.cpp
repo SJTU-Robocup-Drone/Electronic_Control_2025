@@ -20,6 +20,8 @@ std::vector<geometry_msgs::Point> obstacle_zone_points;
 std::queue<RetryPoint> retry_searching_points; // 针对searching点的重试队列
 std::queue<geometry_msgs::Point> retry_navigating_points; // 针对避障点的重试队列
 
+Target targetArray[7]; // 储存靶标信息的数组
+
 void hovering(float z, float time, bool if_exit, ros::Rate &rate)
 {
     last_request = ros::Time::now();
@@ -125,6 +127,16 @@ void init_params(ros::NodeHandle &nh)
         obstacle_zone_points.push_back(createPoint(point[0],point[1],point[2]));
     }
 
+    // 新增功能：设置是否需要投弹
+    for(int i = 0; i < 7; ++i){
+        int isNeedForBomb;
+            std::getline(infile,line);
+            pos1 = line.find("= ");
+            pos2 = line.find(';');
+            valid_str = line.substr(pos1 + 1,pos2 - pos1 - 1);
+            isNeedForBomb = stoi(valid_str);
+        targetArray[i].isNeedForBomb = (isNeedForBomb == 1);
+    }
     infile.close();
 
     // std::vector<double> searching_x_points, searching_y_points, searching_z_points;
@@ -322,4 +334,44 @@ void computeOverheadVelocityCmd(const geometry_msgs::Vector3 &tgt_vel, // 目标
     output_vel.linear.x = vx_cmd;
     output_vel.linear.y = vy_cmd;
     output_vel.linear.z = 0.0; // 固高 1.5m 建议在 MAVROS PositionTarget 的 position.z 体现
+}
+
+// 加入一个 PoseStamped，并清理过期的
+void addPose(const geometry_msgs::PoseStamped &pose, std::deque<geometry_msgs::PoseStamped> g_pose_buffer, ros::Duration g_window_len)
+{
+    g_pose_buffer.push_back(pose);
+
+    ros::Time now = pose.header.stamp;
+    while (!g_pose_buffer.empty() && (now - g_pose_buffer.front().header.stamp) > g_window_len)
+    {
+        g_pose_buffer.pop_front();
+    }
+}
+
+// 查找某个时间戳附近的 PoseStamped
+bool getPoseAt(const ros::Time &t, geometry_msgs::PoseStamped &out, std::deque<geometry_msgs::PoseStamped> g_pose_buffer, ros::Duration g_window_len)
+{
+    if (g_pose_buffer.empty())
+        return false;
+
+    // 时间不在缓存范围内
+    if (t < g_pose_buffer.front().header.stamp || t > g_pose_buffer.back().header.stamp)
+        return false;
+
+    // 找最近邻
+    for (size_t i = 0; i + 1 < g_pose_buffer.size(); i++)
+    {
+        const auto &a = g_pose_buffer[i];
+        const auto &b = g_pose_buffer[i + 1];
+        if (a.header.stamp <= t && t <= b.header.stamp)
+        {
+            if ((t - a.header.stamp) < (b.header.stamp - t))
+                out = a;
+            else
+                out = b;
+            return true;
+        }
+    }
+
+    return false;
 }
