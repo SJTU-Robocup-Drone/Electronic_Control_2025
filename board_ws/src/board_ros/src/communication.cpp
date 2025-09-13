@@ -60,16 +60,19 @@ void nav_check_cb(const mavros_msgs::PositionTarget::ConstPtr &msg)
 
 void adjusted_goal_cb(const geometry_msgs::PoseStamped::ConstPtr &msg)
 {
-    //TODO
-    if(mission_state == SEARCHING){
+    // TODO
+    if (mission_state == SEARCHING)
+    {
         searching_points[searching_index] = msg->pose.position;
         ROS_INFO("Received adjusted goal for searching: (%.2f, %.2f, %.2f)", msg->pose.position.x, msg->pose.position.y, msg->pose.position.z);
     }
-    else if(mission_state == OBSTACLE_AVOIDING){
+    else if (mission_state == OBSTACLE_AVOIDING)
+    {
         obstacle_zone_points[obstacle_zone_index] = msg->pose.position;
         ROS_INFO("Received adjusted goal for obstacle avoiding: (%.2f, %.2f, %.2f)", msg->pose.position.x, msg->pose.position.y, msg->pose.position.z);
     }
-    else{
+    else
+    {
         ROS_WARN("Received adjusted goal in invalid state, ignoring.");
     }
 }
@@ -105,18 +108,22 @@ void init_nav_interfaces(ros::NodeHandle &nh)
     process_target_timer = nh.createTimer(ros::Duration(0.02), [](const ros::TimerEvent &)
                                           { process_target_cb(); });
     portName = "/dev/ttyUSB1"; // 连接esp32的串口名
-    baudrate = 115200; // 串口波特率
-    try {
+    baudrate = 115200;         // 串口波特率
+    try
+    {
         ser.setPort(portName);
         ser.setBaudrate(baudrate);
         serial::Timeout to = serial::Timeout::simpleTimeout(1000);
         ser.setTimeout(to);
         ser.open();
-    } catch (serial::IOException& e) {
+    }
+    catch (serial::IOException &e)
+    {
         ROS_ERROR_STREAM("Unable to open port " << portName);
     }
 
-    if (ser.isOpen()) {
+    if (ser.isOpen())
+    {
         ROS_INFO_STREAM("Serial port initialized: " << portName);
-    } 
+    }
 }

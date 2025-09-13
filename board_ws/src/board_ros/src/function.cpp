@@ -9,16 +9,19 @@
 #include <queue>
 #include <geometry_msgs/Point.h>
 
-geometry_msgs::Point createPoint(double x, double y, double z) {
-   geometry_msgs::Point p;
-   p.x = x; p.y = y; p.z = z;
-   return p;
+geometry_msgs::Point createPoint(double x, double y, double z)
+{
+    geometry_msgs::Point p;
+    p.x = x;
+    p.y = y;
+    p.z = z;
+    return p;
 }
 // 定义点集（会在全局范围内用到）
 std::vector<geometry_msgs::Point> searching_points;
 std::vector<geometry_msgs::Point> obstacle_zone_points;
-std::queue<RetryPoint> retry_searching_points; // 针对searching点的重试队列
-std::queue<geometry_msgs::Point> retry_navigating_points; // 针对避障点的重试队列
+std::queue<RetryPoint> retry_searching_points;            // 针对searching点的重试队列
+std::queue<RetryPoint> retry_navigating_points; // 针对避障点的重试队列
 
 Target targetArray[7]; // 储存靶标信息的数组
 
@@ -35,7 +38,7 @@ void hovering(float z, float time, bool if_exit, ros::Rate &rate)
     while (ros::ok() && ros::Time::now() - last_request < ros::Duration(time))
     {
         ros::spinOnce();
-        local_pos_pub.publish(pose);          // 保持悬停
+        local_pos_pub.publish(pose); // 保持悬停
         rate.sleep();
         if (if_exit == true)
         {
@@ -86,55 +89,61 @@ void init_params(ros::NodeHandle &nh)
     int pos2 = 0;
 
     std::ifstream infile(filename);
-    if(!infile.is_open()){
+    if (!infile.is_open())
+    {
         std::cerr << "无法打开文件: " << filename << std::endl;
         return;
     }
 
     int num_of_searching_points = 0;
-    std::getline(infile,line);
+    std::getline(infile, line);
     pos1 = line.find("= ") + 1;
     pos2 = line.find(';');
-    valid_str = line.substr(pos1 + 1,pos2 - pos1 - 1);
+    valid_str = line.substr(pos1 + 1, pos2 - pos1 - 1);
     num_of_searching_points = stoi(valid_str);
-    for(int i = 0; i < num_of_searching_points; ++i){
+    for (int i = 0; i < num_of_searching_points; ++i)
+    {
         float point[3];
-        for(int j = 0; j < 3; ++j){
-            std::getline(infile,line);
+        for (int j = 0; j < 3; ++j)
+        {
+            std::getline(infile, line);
             pos1 = line.find("= ");
             pos2 = line.find(';');
-            valid_str = line.substr(pos1 + 1,pos2 - pos1 - 1);
+            valid_str = line.substr(pos1 + 1, pos2 - pos1 - 1);
             point[j] = stof(valid_str);
         }
-        searching_points.push_back(createPoint(point[0],point[1],point[2]));
+        searching_points.push_back(createPoint(point[0], point[1], point[2]));
     }
 
     int num_of_obstacle_zone_points = 0;
-    std::getline(infile,line);
+    std::getline(infile, line);
     pos1 = line.find("= ") + 1;
     pos2 = line.find(';');
-    valid_str = line.substr(pos1 + 1,pos2 - pos1 - 1);
+    valid_str = line.substr(pos1 + 1, pos2 - pos1 - 1);
     num_of_obstacle_zone_points = stoi(valid_str);
-    for(int i = 0; i < num_of_obstacle_zone_points; ++i){
+    for (int i = 0; i < num_of_obstacle_zone_points; ++i)
+    {
         float point[3];
-        for(int j = 0; j < 3; ++j){
-            std::getline(infile,line);
+        for (int j = 0; j < 3; ++j)
+        {
+            std::getline(infile, line);
             pos1 = line.find("= ");
             pos2 = line.find(';');
-            valid_str = line.substr(pos1 + 1,pos2 - pos1 - 1);
+            valid_str = line.substr(pos1 + 1, pos2 - pos1 - 1);
             point[j] = stof(valid_str);
         }
-        obstacle_zone_points.push_back(createPoint(point[0],point[1],point[2]));
+        obstacle_zone_points.push_back(createPoint(point[0], point[1], point[2]));
     }
 
     // 新增功能：设置是否需要投弹
-    for(int i = 0; i < 7; ++i){
+    for (int i = 0; i < 7; ++i)
+    {
         int isNeedForBomb;
-            std::getline(infile,line);
-            pos1 = line.find("= ");
-            pos2 = line.find(';');
-            valid_str = line.substr(pos1 + 1,pos2 - pos1 - 1);
-            isNeedForBomb = stoi(valid_str);
+        std::getline(infile, line);
+        pos1 = line.find("= ");
+        pos2 = line.find(';');
+        valid_str = line.substr(pos1 + 1, pos2 - pos1 - 1);
+        isNeedForBomb = stoi(valid_str);
         targetArray[i].isNeedForBomb = (isNeedForBomb == 1);
     }
     infile.close();
@@ -213,7 +222,7 @@ void computeOverheadVelocityCmd(const geometry_msgs::Vector3 &tgt_vel, // 目标
                                 geometry_msgs::Point &output_ref_xy) // 输出：参考点（调试/可视化）
 {
     FollowParams p; // 可在外层设参；这里用默认值即可（高度=1.5）
-    const bool fresh = (now_sec- target_stamp_sec) < ros::Duration(p.lost_timeout);
+    const bool fresh = (now_sec - target_stamp_sec) < ros::Duration(p.lost_timeout);
 
     // === 1) 直线几何建模：沿线/垂线分解（在线学习） ============================
     // 在不新增全局的前提下，用 static 保留少量状态（仅在本进程内有效）
@@ -352,11 +361,19 @@ void addPose(const geometry_msgs::PoseStamped &pose, std::deque<geometry_msgs::P
 bool getPoseAt(const ros::Time &t, geometry_msgs::PoseStamped &out, std::deque<geometry_msgs::PoseStamped> g_pose_buffer, ros::Duration g_window_len)
 {
     if (g_pose_buffer.empty())
+    {
+        ROS_INFO("Buffer empty");
         return false;
-
+    }
     // 时间不在缓存范围内
     if (t < g_pose_buffer.front().header.stamp || t > g_pose_buffer.back().header.stamp)
+    {
+        if (t < g_pose_buffer.front().header.stamp)
+            ROS_INFO("Time too early");
+        else
+            ROS_INFO("Time too late");
         return false;
+    }
 
     // 找最近邻
     for (size_t i = 0; i + 1 < g_pose_buffer.size(); i++)

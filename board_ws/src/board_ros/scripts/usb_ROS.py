@@ -126,9 +126,10 @@ def detect_red_cross(frame):
     return cross_center
 
 
+
 def check_queue(items, class_id, confidence, x, y, z):
     item = items[class_id]
-    if confidence > 0.7:    #模型默认剔除置信度低于0.7的目标框，此处可再升高
+    if confidence > 0.7:
         if item[1] < 3:
             item[1] += 1
             item[2].append([x, y, z])
@@ -261,15 +262,15 @@ def detect_targets():
                               y_new = (y_new - cy) / fy * camera_height
                               rospy.loginfo(f"OpenCV检测到: {names[class_id]}, 坐标: X={x_new:.2f}, Y={y_new:.2f}, Z={z:.2f}, 置信度: {conf:.2f}")
                               if math.sqrt((x-x_new)**2 +(y-y_new)**2) <= 0.1:
-                                  detection_msg.point.x = x_new
-                                  detection_msg.point.y = y_new
+                                  detection_msg.point.x = -x_new
+                                  detection_msg.point.y = -y_new
                                   detection_msg.point.z = z
                                   random_pub.publish(detection_msg)
                             else:
                               rospy.loginfo(f"OpenCV未检测到，不上传话题")
                         if names[class_id] != "red":
-                            detection_msg.point.x = x
-                            detection_msg.point.y = y
+                            detection_msg.point.x = -x
+                            detection_msg.point.y = -y
                             detection_msg.point.z = z
                             detection_pub.publish(detection_msg)
                         
