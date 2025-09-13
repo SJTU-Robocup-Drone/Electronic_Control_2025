@@ -57,8 +57,6 @@ bool is_takeoff = false;
 bool is_moving_target = false;
 bool is_param_set = false;
 
-double offset[3][2] = {{0, 0.16}, {0.16, 0}, {0, -0.16}};
-
 const double threshold_distance = 0.1;
 
 void takeoff(ros::Rate &rate)

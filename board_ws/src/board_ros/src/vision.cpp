@@ -20,6 +20,9 @@ double coordY = 0;
 void process_target_cb();
 void receive_target();
 
+// 投弹仓相对于飞控的位置偏移补偿
+double offset[3][2] = {{0, 0.16}, {0.16, 0}, {0, -0.16}};
+
 // 目标类型映射
 std::map<std::string, int> target_types = {
     {"tent", 0},
