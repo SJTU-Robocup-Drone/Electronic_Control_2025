@@ -7,13 +7,14 @@ import torch
 import numpy as np
 import pyrealsense2 as rs
 import time
+import cv2
 import threading
 from nav_msgs.msg import Odometry
 from utils.augmentations import letterbox
 from utils.general import non_max_suppression
 
 # 视觉处理频率 帧/秒
-vision_rate=30  
+vision_rate=60  
 
 # 视觉状态控制
 scanning_active = False
@@ -23,21 +24,25 @@ stop_event = threading.Event()
 # 初始化滑动平均缓存
 items = [
     ["bridge", 0, []], ["bunker", 0, []], ["car", 0, []],
-    ["Helicopter", 0, []], ["tank", 0, []], ["tent", 0, []], ["car", 0, []]
+    ["Helicopter", 0, []], ["tank", 0, []], ["tent", 0, []], ["red", 0, []]
 ]
 
 # 坐标发布器
 detection_pub = None
+random_pub = None
 odom_pos = None
+
+
+
 
 def check_queue(items, class_id, confidence, x, y, z):
     item = items[class_id]
-    if confidence > 0.5:
-        if item[1] < 20:
+    if confidence > 0.7:
+        if item[1] < 3:
             item[1] += 1
             item[2].append([x, y, z])
         else:
-            r = np.random.randint(0, 20)
+            r = np.random.randint(0, 3)
             item[2][r] = [x, y, z]
 
     if item[2]:
@@ -63,10 +68,10 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
     return coords
 
 def detect_targets():
-    global detection_pub, odom_pos
+    global detection_pub, odom_pos, random_pub
 
     # 初始化 YOLO 模型
-    model_path = '/home/amov/board_ws/src/board_ros/scripts/best_0801.pt'
+    model_path = '/home/amov/board_ws/src/board_ros/scripts/best_0909.pt'
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     rospy.loginfo("[INFO] 加载模型中...")
     model = torch.load(model_path, map_location=device)['model'].float()
@@ -126,27 +131,54 @@ def detect_targets():
                     cx = (xmin + xmax) // 2
                     cy = (ymin + ymax) // 2
 
-                    depth_value = odom_pos.z + 0.16 if odom_pos else 0
+                    depth_value = odom_pos.z + 0.50 if odom_pos else 0
                     point_3d = rs.rs2_deproject_pixel_to_point(color_intrinsics, [cx, cy], depth_value)
                     x, y, z = point_3d
                     class_id = int(cls)
                     x, y, z = check_queue(items, class_id, float(conf), x, y, z)
+                    rospy.loginfo("[INFO] 推理完成1。")
 
-                    # 发布检测结果
-                    if conf > 0.5 and detection_pub and frame_count % (vision_rate/30) == 0:
+                    if conf > 0.9 and frame_count % (60/vision_rate) == 0:
                         detection_msg = PointStamped()
                         detection_msg.header.stamp = rospy.Time.now()
                         detection_msg.header.frame_id = names[class_id]  # 使用类别名作为frame_id
-                        detection_msg.point.x = x
-                        detection_msg.point.y = y
-                        detection_msg.point.z = z
-                        detection_pub.publish(detection_msg)
+                        # if names[class_id] == "red":
+                        #    rospy.loginfo("[INFO] 推理完成11。")
+                        #    cross_center = detect_red_cross(color_image)
+                        #    if cross_center != None:
+                        #      x_new, y_new = cross_center
+                        #     x_new = (x_new - cx) / fx * camera_height
+                        #      y_new = (y_new - cy) / fy * camera_height
+                        #      if sqrt((x-x_new)**2 +(y-y_new)**2) <= 0.1:
+                        #          detection_msg.point.x = x_new
+                        #          detection_msg.point.y = y_new
+                        #          detection_msg.point.z = z
+                        #          random_pub.publish(detection_msg)
+                        #          rospy.loginfo(f"OpenCV检测到: {names[class_id]}, 坐标: X={x_new:.2f}, Y={y_new:.2f}, Z={z:.2f}, 置信度: {conf:.2f}")
+                        #    else:
+                        #      rospy.loginfo(f"OpenCV未检测到，不上传话题")
+                        #if names[class_id] != "red":
+                        #    detection_msg.point.x = x
+                        #    detection_msg.point.y = y
+                        #    detection_msg.point.z = z
+                        #    detection_pub.publish(detection_msg)
                         
-                        rospy.loginfo(f"检测到: {names[class_id]}, 坐标: X={x:.2f}, Y={y:.2f}, Z={z:.2f}, 置信度: {conf:.2f}")
+                        if names[class_id] == "red":
 
-            total_time = time.time() - start_time
-            if total_time < 1 / 30:
-                time.sleep(1 / 30 - total_time)
+                            detection_msg.point.x = x
+                            detection_msg.point.y = y
+                            detection_msg.point.z = z
+                            random_pub.publish(detection_msg)
+                            rospy.loginfo(f"YOLO检测到: {names[class_id]}, 坐标: X={x:.2f}, Y={y:.2f}, Z={z:.2f}, 置信度: {conf:.2f}")
+                        if names[class_id] != "red":
+                            detection_msg.point.x = x
+                            detection_msg.point.y = y
+                            detection_msg.point.z = z
+                            detection_pub.publish(detection_msg)
+                        
+                        rospy.loginfo(f"YOLO检测到: {names[class_id]}, 坐标: X={x:.2f}, Y={y:.2f}, Z={z:.2f}, 置信度: {conf:.2f}")
+
+        
 
     except Exception as e:
         rospy.logerr(f"检测过程中出现错误: {e}")
@@ -166,10 +198,10 @@ def vision_state_callback(msg):
         detection_thread.daemon = True
         detection_thread.start()
 
-    elif not msg.data and scanning_active:
-        rospy.loginfo("[INFO] 收到视觉停止指令，停止扫描...")
-        stop_event.set()
-        scanning_active = False
+    # elif not msg.data and scanning_active:
+    #     rospy.loginfo("[INFO] 收到视觉停止指令，停止扫描...")
+    #     stop_event.set()
+    #     scanning_active = False
 
 def odom_callback(msg):
     global odom_pos
@@ -179,13 +211,20 @@ if __name__ == "__main__":
     rospy.init_node("object_detector")
     
     # 创建发布器
-    detection_pub = rospy.Publisher("/detection_results", PointStamped, queue_size=10)
-    
-    
+    detection_pub = rospy.Publisher("/detection_results", PointStamped, queue_size=1)
+    random_pub = rospy.Publisher("/random_target", PointStamped, queue_size=1)
     rospy.Subscriber("/vision_state", Bool, vision_state_callback)
     rospy.Subscriber("/odom_high_freq", Odometry, odom_callback)
     rospy.loginfo("[INFO] 视觉节点已启动，等待/vision_state指令...")
 
+    # 如果不需要监听外部指令，可以直接启动扫描
+    rospy.loginfo("[INFO] 视觉节点已启动，自动开始扫描...")
+    scanning_active = True
+    stop_event = threading.Event()
+    
+    detection_thread = threading.Thread(target=detect_targets)
+    detection_thread.daemon = True
+    detection_thread.start()
  
     try:
         rospy.spin()

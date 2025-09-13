@@ -21,7 +21,7 @@ geometry_msgs::Point createPoint(double x, double y, double z)
 std::vector<geometry_msgs::Point> searching_points;
 std::vector<geometry_msgs::Point> obstacle_zone_points;
 std::queue<RetryPoint> retry_searching_points;            // 针对searching点的重试队列
-std::queue<geometry_msgs::Point> retry_navigating_points; // 针对避障点的重试队列
+std::queue<RetryPoint> retry_navigating_points; // 针对避障点的重试队列
 
 Target targetArray[7]; // 储存靶标信息的数组
 

@@ -125,8 +125,8 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
 // 为了让无人机能在扫到随机靶的那一刻就去投它，单独处理随机靶
 void random_target_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
 {
-    if (targetArray[6].isBombed)
-        return;        // 已经投过随机靶就不需要更新了
+    if (targetArray[6].isBombed || !vision_state_msg.data)
+        return;        // 如果vision_state为假或已经投过随机靶就不需要更新了
     current_index = 6; // 随机靶的索引为6
     // 定义相机系
     double rel_x = msg->point.x;
@@ -173,6 +173,20 @@ void process_target_cb()
             target_pose.pose.position.z = 0.9;
 
             current_index = 5;
+        }
+    }
+    else if(is_retrying_bombing_point){
+        // 持续锁定一个目标，而非由优先级选定
+        current_index = retrying_target_index;
+        if (targetArray[current_index].isNeedForBomb && targetArray[current_index].isValid && !targetArray[current_index].isBombed)
+        {
+            is_found = true;
+
+                target_pose.header.frame_id = "map";
+                target_pose.pose.position.x = targetArray[current_index].x;
+                target_pose.pose.position.y = targetArray[current_index].y;
+                target_pose.pose.position.z = 0.9;
+                
         }
     }
     else
