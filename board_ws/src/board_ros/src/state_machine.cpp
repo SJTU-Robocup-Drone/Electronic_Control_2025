@@ -415,15 +415,15 @@ void bombing(ros::Rate &rate)
     pose.pose.position.z = 0.2; // 实际上没用
     vel.linear.x = 0.0;
     vel.linear.y = 0.0;
-    vel.linear.z = -4.0;
+    vel.linear.z = -2.0;
     // 边下降边投弹
     bool isBombed = false;
-    while (ros::ok() && current_pose.pose.position.z >= 0.25)
+    while (ros::ok() && current_pose.pose.position.z >= 0.4)
     {
         ros::spinOnce();
         // local_pos_pub.publish(pose);
         local_vel_pub.publish(vel);
-        if (current_pose.pose.position.z <= 0.4 && !isBombed)
+        if (current_pose.pose.position.z <= 0.5 && !isBombed)
         {
             ROS_INFO("Releasing bomb %d...", target_index + 1);
             // target_index_msg.data = target_index;
@@ -439,7 +439,7 @@ void bombing(ros::Rate &rate)
     }
 
     // 到点后悬停0.5秒,然后索引自增
-    hovering(0.2, 0.5, false, rate);
+    hovering(0.4, 0.5, false, rate);
     target_pose.pose.position.z = -1; // 防止视觉节点没有来得及发布新目标点或发布未找到目标点的消息导致重复导航和投弹
 
     ROS_INFO("Bombing %d done, rising to normal flight height.", target_index + 1);
