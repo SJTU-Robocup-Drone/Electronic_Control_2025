@@ -110,11 +110,11 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
             targetArray[type].x = global_x;
             targetArray[type].y = global_y;
             targetArray[type].isValid = true;
-            ROS_INFO("Drone YPR:(%.2F,%.2f,%.2f)", yaw, pitch, roll);
-            ROS_INFO("Refreshing target %s, relative coord: (%.2f, %.2f),at %f", target_name.c_str(), global_x, global_y, target_pose.header.stamp.toSec());
-            ROS_INFO("Relevant target at : (%.2f, %.2f) ", drone_x, drone_y);
-            ROS_INFO("x=%.2f", current_pose.pose.position.x);
-            ROS_INFO("y=%.2f", current_pose.pose.position.y);
+            // ROS_INFO("Drone YPR:(%.2F,%.2f,%.2f)", yaw, pitch, roll);
+            // ROS_INFO("Refreshing target %s, relative coord: (%.2f, %.2f),at %f", target_name.c_str(), global_x, global_y, target_pose.header.stamp.toSec());
+            // ROS_INFO("Relevant target at : (%.2f, %.2f) ", drone_x, drone_y);
+            // ROS_INFO("x=%.2f", current_pose.pose.position.x);
+            // ROS_INFO("y=%.2f", current_pose.pose.position.y);
         }
     }
     // ADJUSTING阶段刷新标志位

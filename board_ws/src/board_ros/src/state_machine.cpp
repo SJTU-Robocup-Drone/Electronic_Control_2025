@@ -700,6 +700,7 @@ void detecting(ros::Rate &rate)
     board_ros::track::Endpoints establishedPoints;
     ros::Time swich_time = ros::Time::now();
     static bool edge = false; // 边沿触发标志
+    static bool is_second_learning = false;
 
     enum DetectingState
     {
@@ -711,7 +712,8 @@ void detecting(ros::Rate &rate)
     } detecting_state = APPROACHING;
 
     vision_state_msg.data = true; // 开启视觉扫描
-    hovering(3.0, 5, true, rate);
+    hovering(3.0, 2, false, rate);
+    hovering(3.0, 5, false, rate);
     ROS_INFO("Start detecting for target line...");
     // 主循环：每步推进一次状态机
     while (ros::ok())
@@ -762,9 +764,15 @@ void detecting(ros::Rate &rate)
             board_ros::track::publish_direction_u(establishedPoints, target_pose);
             target_pub.publish(target_pose);
 
+            ROS_INFO("Switch time is %.2f", ros::Time::now().toSec() - swich_time.toSec());
             if (ros::Time::now() - swich_time > ros::Duration(30.0))
             {
-                detecting_state = CYCLE_MODELING;
+                if (!is_second_learning)
+                    detecting_state = REACH_ENDPOINT;
+                else
+                {
+                    detecting_state = PREPARING;
+                }
                 swich_time = ros::Time::now();
             }
             break;
@@ -772,7 +780,8 @@ void detecting(ros::Rate &rate)
 
         case REACH_ENDPOINT:
         {
-            set_and_pub_pose(establishedPoints.A[0], establishedPoints.A[1], 3);
+            ROS_INFO("Getting to the endpoint A");
+            set_and_pub_pose(establishedPoints.A[0], establishedPoints.A[1], 1.5);
             while (distance(current_pose, pose.pose.position) > threshold_distance)
             {
                 ros::spinOnce();
@@ -784,7 +793,10 @@ void detecting(ros::Rate &rate)
             compute.reset();
             detecting_state = HIGH_LEARNING;
             swich_time = ros::Time::now();
-            hovering(3.0, 3, true, rate);
+
+            ROS_INFO("Enter second learning");
+            hovering(1.5, 2, true, rate);
+            is_second_learning = true;
         }
 
         case PREPARING:
@@ -814,10 +826,10 @@ void detecting(ros::Rate &rate)
                     edge = true;
                 }
 
-                if ((abs(ros::Time::now().toSec() - compute.config().drop.T_drop - bomb_time - compute.config().drop.sys_delay) < 0.02) && edge)
+                if ((abs(ros::Time::now().toSec() - compute.config().drop.T_drop - bomb_time - compute.config().drop.sys_delay) < 0.1) && edge)
                 {
                     edge = false;
-                    if (distance(current_pose, target_pose.pose.position) < threshold_distance)
+                    if (distance(current_pose, target_pose.pose.position) < 2 * threshold_distance)
                     {
                         ROS_INFO("BOMBING SUCCEEDED");
                         ROS_INFO("BOMBING SUCCEEDED");
