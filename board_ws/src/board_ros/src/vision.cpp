@@ -22,6 +22,8 @@ void receive_target();
 
 // 投弹仓相对于飞控的位置偏移补偿
 double offset[3][2] = {{0, 0.16}, {0.16, 0}, {0, -0.16}};
+// 摄像头相对于飞控的位置偏移补偿
+double cam_offset = 0.07;
 
 // 目标类型映射
 std::map<std::string, int> target_types = {
@@ -87,7 +89,7 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
         }
 
         // 定义机体系x，y
-        double drone_x = -rel_y + 0.07; // 相机与飞控和雷达的距离是7厘米
+        double drone_x = -rel_y + cam_offset;
         double drone_y = -rel_x;
         // 获取无人机偏航角
         double yaw, pitch, roll;
@@ -135,7 +137,7 @@ void random_target_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
     double rel_x = msg->point.x;
     double rel_y = msg->point.y;
     // 定义机体系x，y
-    double drone_x = -rel_y + 0.07; // 相机与飞控和雷达的距离是7厘米
+    double drone_x = -rel_y + cam_offset;
     double drone_y = -rel_x;
     // 获取无人机偏航角
     double yaw, pitch, roll;
