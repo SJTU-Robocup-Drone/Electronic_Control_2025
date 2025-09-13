@@ -754,9 +754,9 @@ void detecting(ros::Rate &rate)
                      establishedPoints.A.x(), establishedPoints.A.y(),
                      establishedPoints.B.x(), establishedPoints.B.y(),
                      establishedPoints.L, establishedPoints.valid);
-
-            board_ros::track::publish_endpoints_posearray(establishedPoints, target_pose);
-            board_ros::track::publish_direction_u(establishedPoints, target_pose);
+            
+            // 发布生成的直线模型
+            board_ros::track::publish_endpoints(establishedPoints, target_pose);
             target_pub.publish(target_pose);
 
             ROS_INFO("Switch time is %.2f", ros::Time::now().toSec() - swich_time.toSec());

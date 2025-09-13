@@ -8,7 +8,6 @@
 #include <ros/ros.h>
 #include <utility>
 
-
 namespace board_ros
 {
     namespace track
@@ -123,22 +122,30 @@ namespace board_ros
             Impl *impl_{nullptr};
         };
 
-        // 发布端点：A=poses[0], B=poses[1]
-        inline void publish_endpoints_posearray(const Endpoints &ep,
-                                                const geometry_msgs::PoseStamped &ref_pose,
-                                                const std::string &topic = "/track/endpoints_posearray")
+        // 发布端点及方向
+        inline void publish_endpoints(const Endpoints &ep,
+                                      const geometry_msgs::PoseStamped &ref_pose,
+                                      bool publish_direction = true,
+                                      const std::string &endpoints_topic = "/track/endpoints_posearray",
+                                      const std::string &direction_topic = "/track/endpoints_dir")
         {
-            static ros::Publisher pub;
-            static std::string last_topic;
+            static ros::Publisher pub_endpoints;
+            static ros::Publisher pub_direction;
+            static std::string last_endpoints_topic;
+            static std::string last_direction_topic;
             static bool inited = false;
-            if (!inited || topic != last_topic)
+
+            if (!inited || endpoints_topic != last_endpoints_topic || direction_topic != last_direction_topic)
             {
                 ros::NodeHandle nh;
-                pub = nh.advertise<geometry_msgs::PoseArray>(topic, 1, /*latch=*/true);
-                last_topic = topic;
+                pub_endpoints = nh.advertise<geometry_msgs::PoseArray>(endpoints_topic, 1, /*latch=*/true);
+                pub_direction = nh.advertise<geometry_msgs::Vector3Stamped>(direction_topic, 1, /*latch=*/true);
+                last_endpoints_topic = endpoints_topic;
+                last_direction_topic = direction_topic;
                 inited = true;
             }
 
+            // 发布端点
             geometry_msgs::PoseArray pa;
             pa.header = ref_pose.header; // 带上 frame_id 和时间
             pa.poses.resize(2);
@@ -146,33 +153,19 @@ namespace board_ros
             pa.poses[0].position.y = ep.A.y();
             pa.poses[1].position.x = ep.B.x();
             pa.poses[1].position.y = ep.B.y();
-            pub.publish(pa);
-        }
+            pub_endpoints.publish(pa);
 
-        // 发布方向：单位向量 u（A->B）
-        inline void publish_direction_u(const Endpoints &ep,
-                                        const geometry_msgs::PoseStamped &ref_pose,
-                                        const std::string &topic = "/track/endpoints_dir")
-        {
-            static ros::Publisher pub;
-            static std::string last_topic;
-            static bool inited = false;
-            if (!inited || topic != last_topic)
+            // 发布方向（如果需要）
+            if (publish_direction)
             {
-                ros::NodeHandle nh;
-                pub = nh.advertise<geometry_msgs::Vector3Stamped>(topic, 1, /*latch=*/true);
-                last_topic = topic;
-                inited = true;
+                geometry_msgs::Vector3Stamped vs;
+                vs.header = ref_pose.header;
+                vs.vector.x = ep.u.x();
+                vs.vector.y = ep.u.y();
+                vs.vector.z = 0.0;
+                pub_direction.publish(vs);
             }
-
-            geometry_msgs::Vector3Stamped vs;
-            vs.header = ref_pose.header;
-            vs.vector.x = ep.u.x();
-            vs.vector.y = ep.u.y();
-            vs.vector.z = 0.0;
-            pub.publish(vs);
         }
 
-    
     } // namespace track
 } // namespace board_ros
