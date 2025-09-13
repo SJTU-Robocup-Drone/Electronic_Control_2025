@@ -57,8 +57,6 @@ bool is_takeoff = false;
 bool is_moving_target = false;
 bool is_param_set = false;
 
-double offset[3][2] = {{0, 0.16}, {0.16, 0}, {0, -0.16}};
-
 const double threshold_distance = 0.1;
 
 void takeoff(ros::Rate &rate)
@@ -110,9 +108,6 @@ void takeoff(ros::Rate &rate)
         {
             mission_state = SEARCHING;
             ROS_INFO("Takeoff complete. Starting overlooking.");
-
-            // 起飞后悬停一秒，给建图和ego_planner启动留时间；同时也给pose一个初始的有效值，防止飞控在ego_planner未启动时因长时间接收不到目标点而进入failsafe模式
-            hovering(1.0, 1, false, rate);
             break; // 跳出循环，进入导航状态
         }
         rate.sleep();
@@ -123,7 +118,7 @@ void overlooking(ros::Rate &rate)
 {
     vision_state_msg.data = true; // 开启视觉扫描
     ROS_INFO("Stabilizing first...");
-    hovering(1.0, 2, false, rate);
+    hovering(0.9, 2, false, rate);
 
     ROS_INFO("Start overlooking for target. Rising to overlooking position...");
     pose.pose.position.z = 3.0; // 悬停高度
@@ -141,7 +136,7 @@ void overlooking(ros::Rate &rate)
 
     ROS_INFO("Reached overlooking position. Scanning for target...");
     hovering(3, 2, false, rate);
-    hovering(3, 8, true, rate);
+    hovering(3, 4, true, rate);
 
     ROS_INFO("Overlooking complete, descending to normal flight height.");
     // 降低高度到1米(原飞行高度)
@@ -219,7 +214,7 @@ void searching(ros::Rate &rate)
 
     // 发布航点并进入导航状态前先悬停，给建图留时间
     ROS_INFO("Hovering before navigating...");
-    hovering(0.8, 5.0, false, rate);
+    hovering(0.8, 3, false, rate);
 
     if (!is_retrying_searching_point)
     { // 导航前往新的点
@@ -355,14 +350,14 @@ void bomb_navigating(ros::Rate &rate)
 
 void adjusting(ros::Rate &rate)
 {
-    int adj_height = 0.6;
+    float adj_height = 0.6;
     if (is_return)
         adj_height = 0.9;
     vision_state_msg.data = true; // 开启视觉扫描
     adjust_has_target = false;
     ROS_INFO("2nd time of visual scanning...");
     hovering(adj_height, 2, false, rate); // 稳定位姿
-    hovering(adj_height, 8, true, rate);  // 等待扫描
+    hovering(adj_height, 4, true, rate);  // 等待扫描
     vision_state_msg.data = false;        // 关闭视觉扫描
 
     pose.header.frame_id = "map";
@@ -420,15 +415,15 @@ void bombing(ros::Rate &rate)
     pose.pose.position.z = 0.2; // 实际上没用
     vel.linear.x = 0.0;
     vel.linear.y = 0.0;
-    vel.linear.z = -4.0;
+    vel.linear.z = -2.0;
     // 边下降边投弹
     bool isBombed = false;
-    while (ros::ok() && current_pose.pose.position.z >= 0.25)
+    while (ros::ok() && current_pose.pose.position.z >= 0.4)
     {
         ros::spinOnce();
         // local_pos_pub.publish(pose);
         local_vel_pub.publish(vel);
-        if (current_pose.pose.position.z <= 0.4 && !isBombed)
+        if (current_pose.pose.position.z <= 0.5 && !isBombed)
         {
             ROS_INFO("Releasing bomb %d...", target_index + 1);
             // target_index_msg.data = target_index;
@@ -444,7 +439,7 @@ void bombing(ros::Rate &rate)
     }
 
     // 到点后悬停0.5秒,然后索引自增
-    hovering(0.2, 0.5, false, rate);
+    hovering(0.4, 0.5, false, rate);
     target_pose.pose.position.z = -1; // 防止视觉节点没有来得及发布新目标点或发布未找到目标点的消息导致重复导航和投弹
 
     ROS_INFO("Bombing %d done, rising to normal flight height.", target_index + 1);
@@ -478,7 +473,7 @@ void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
         command = std::to_string(target_index + 1) + std::to_string(0) + "\n";
         ser.write(command);
         ROS_INFO_STREAM("Sent command to servo" << target_index + 1 << ": " << command);
-        hovering(1.0, 0.5, false, rate);
+        hovering(0.9, 0.5, false, rate);
         target_index++;
     }
 

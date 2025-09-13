@@ -346,7 +346,7 @@ void computeOverheadVelocityCmd(const geometry_msgs::Vector3 &tgt_vel, // 目标
 }
 
 // 加入一个 PoseStamped，并清理过期的
-void addPose(const geometry_msgs::PoseStamped &pose, std::deque<geometry_msgs::PoseStamped> g_pose_buffer, ros::Duration g_window_len)
+void addPose(const geometry_msgs::PoseStamped &pose, std::deque<geometry_msgs::PoseStamped> &g_pose_buffer, ros::Duration g_window_len)
 {
     g_pose_buffer.push_back(pose);
 
