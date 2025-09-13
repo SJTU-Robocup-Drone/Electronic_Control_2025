@@ -124,7 +124,7 @@ namespace ego_planner
     Eigen::Vector3i current_idx;
     grid_map->posToIndex(pos, current_idx);
     for(int x = -safe_radius; x <= safe_radius; x++){
-      for(int y = abs(x) - safe_radius; abs(x) + abs(y) <= safe_radius; y++){
+      for(int y = -safe_radius; y <= safe_radius; y++){
         Eigen::Vector3i candidate_idx = current_idx + Eigen::Vector3i(x, y, 0);
         Eigen::Vector3d candidate_pos;
         grid_map->indexToPos(candidate_idx,candidate_pos);
