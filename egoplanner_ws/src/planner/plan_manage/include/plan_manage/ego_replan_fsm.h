@@ -111,6 +111,7 @@ namespace ego_planner
 
     bool findEscapeTarget(Eigen::Vector3d& escape_target);// new added for emergency escape
     bool adjustTarget(Eigen::Vector3d& target);// new added for adjusting goal(terminal point)
+    bool isSafe(Eigen::Vector3d& pos, int safe_radius); // new added for safety check
     /* ROS functions */
     void execFSMCallback(const ros::TimerEvent &e);
     void checkCollisionCallback(const ros::TimerEvent &e);

@@ -125,8 +125,8 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
 // 为了让无人机能在扫到随机靶的那一刻就去投它，单独处理随机靶
 void random_target_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
 {
-    if (targetArray[6].isBombed)
-        return;        // 已经投过随机靶就不需要更新了
+    if (targetArray[6].isBombed || !vision_state_msg.data)
+        return;        // 如果vision_state为假或已经投过随机靶就不需要更新了
     current_index = 6; // 随机靶的索引为6
     // 定义相机系
     double rel_x = msg->point.x;

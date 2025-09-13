@@ -129,11 +129,11 @@ def detect_red_cross(frame):
 def check_queue(items, class_id, confidence, x, y, z):
     item = items[class_id]
     if confidence > 0.7:    #模型默认剔除置信度低于0.7的目标框，此处可再升高
-        if item[1] < 20:
+        if item[1] < 3:
             item[1] += 1
             item[2].append([x, y, z])
         else:
-            r = np.random.randint(0, 20)
+            r = np.random.randint(0, 3)
             item[2][r] = [x, y, z]
 
     if item[2]:
