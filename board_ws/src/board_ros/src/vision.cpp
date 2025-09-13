@@ -144,6 +144,8 @@ void random_target_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
     tf2::Vector3 local(drone_x, drone_y, 0.0);
     tf2::Vector3 global = R * local;
 
+    coordX = current_pose.pose.position.x;
+    coordY = current_pose.pose.position.y;
     // 平移到无人机当前位置
     double global_x = coordX + global.x();
     double global_y = coordY + global.y();

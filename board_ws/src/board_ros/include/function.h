@@ -24,7 +24,7 @@ void set_and_pub_nav(float x, float y, float z);
 // 计算两点距离
 double distance(const geometry_msgs::PoseStamped &current_pose, const geometry_msgs::Point &point);
 
-void addPose(const geometry_msgs::PoseStamped &pose, std::deque<geometry_msgs::PoseStamped> g_pose_buffer, ros::Duration g_window_len);
+void addPose(const geometry_msgs::PoseStamped &pose, std::deque<geometry_msgs::PoseStamped> &g_pose_buffer, ros::Duration g_window_len);
 
 bool getPoseAt(const ros::Time &t, geometry_msgs::PoseStamped &out, std::deque<geometry_msgs::PoseStamped> g_pose_buffer, ros::Duration g_window_len);
 
