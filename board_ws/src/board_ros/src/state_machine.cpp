@@ -110,9 +110,6 @@ void takeoff(ros::Rate &rate)
         {
             mission_state = SEARCHING;
             ROS_INFO("Takeoff complete. Starting overlooking.");
-
-            // 起飞后悬停一秒，给建图和ego_planner启动留时间；同时也给pose一个初始的有效值，防止飞控在ego_planner未启动时因长时间接收不到目标点而进入failsafe模式
-            hovering(0.9, 1, false, rate);
             break; // 跳出循环，进入导航状态
         }
         rate.sleep();
