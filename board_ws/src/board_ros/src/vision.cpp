@@ -175,6 +175,20 @@ void process_target_cb()
             current_index = 5;
         }
     }
+    else if(is_retrying_bombing_point){
+        // 持续锁定一个目标，而非由优先级选定
+        current_index = retrying_target_index;
+        if (targetArray[current_index].isNeedForBomb && targetArray[current_index].isValid && !targetArray[current_index].isBombed)
+        {
+            is_found = true;
+
+                target_pose.header.frame_id = "map";
+                target_pose.pose.position.x = targetArray[current_index].x;
+                target_pose.pose.position.y = targetArray[current_index].y;
+                target_pose.pose.position.z = 0.9;
+                
+        }
+    }
     else
     {
         // 投弹阶段：按优先级选择目标

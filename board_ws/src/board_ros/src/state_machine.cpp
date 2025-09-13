@@ -45,6 +45,7 @@ int vision_bias_cnt = 0;
 int target_index = 0;
 int searching_index = 0;
 int obstacle_zone_index = 0;
+int retrying_target_index = -1;
 
 std_msgs::Int32 target_index_msg;
 
@@ -287,14 +288,16 @@ void bomb_navigating(ros::Rate &rate)
     is_retrying_bombing_point = false; // 表示这一次bomb_navigating是不是在重试之前卡住的点
     if (retry_navigating_points.size() > 0)
     { // 存在需要重试的点
-        geometry_msgs::Point retry_point = retry_navigating_points.front();
+        RetryPoint retry_point = retry_navigating_points.front();
         retry_navigating_points.pop();
         is_retrying_bombing_point = true;
 
-        set_and_pub_nav(retry_point.x, retry_point.y, retry_point.z);
+        set_and_pub_nav(retry_point.point.x, retry_point.point.y, retry_point.point.z);
         first_target_point = nav_pose.pose.position;
         last_target_point = nav_pose.pose.position;
         ROS_INFO("Retrying navigating to retry point...");
+
+        retrying_target_index = retry_point.index; // 接下来vision会锁定这个index
     }
     else
     {
@@ -319,9 +322,10 @@ void bomb_navigating(ros::Rate &rate)
             // 为什么bomb_navigating卡住了要放弃searching_points？是不是有BUG
             nav_state_msg.data = false;
             nav_state_pub.publish(nav_state_msg);
-
+            
+            RetryPoint retry_point(nav_pose.pose.position,current_index);
             if (!is_retrying_bombing_point)
-                retry_navigating_points.push(nav_pose.pose.position); // 将当前导航点存入重试队列
+                retry_navigating_points.push(retry_point); // 将当前导航点存入重试队列
             break;
         }
 
@@ -331,6 +335,9 @@ void bomb_navigating(ros::Rate &rate)
             ROS_INFO("Reached bomb target %d.", target_index + 1);
             nav_state_msg.data = false;
             nav_state_pub.publish(nav_state_msg);
+            // 将“是否重试”状态设置为否
+            is_retrying_bombing_point = false;
+            retrying_target_index = -1;
             if (is_moving_target)
             {
                 mission_state = FOLLOWING;

@@ -97,6 +97,7 @@ extern bool adjust_has_target;
 extern int vision_bias_cnt;
 extern int target_index;
 extern int current_index;
+extern int retrying_target_index;
 
 extern std_msgs::Int32 target_index_msg;
 
@@ -127,9 +128,11 @@ struct RetryPoint
 {
     geometry_msgs::Point point;
     int index;
+    RetryPoint() {}
+    RetryPoint(geometry_msgs::Point point, int index) : point(point),index(index) {}
 };
 extern std::queue<RetryPoint> retry_searching_points;            // 针对searching点的重试队列
-extern std::queue<geometry_msgs::Point> retry_navigating_points; // 针对避障点的重试队列
+extern std::queue<RetryPoint> retry_navigating_points; // 针对避障点的重试队列
 
 // 靶标数组
 struct Target
