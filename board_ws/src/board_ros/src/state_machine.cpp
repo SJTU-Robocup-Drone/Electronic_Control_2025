@@ -691,13 +691,16 @@ void detecting(ros::Rate &rate)
 {
     static board_ros::track::TrackerDropper compute;
     board_ros::track::Endpoints establishedPoints;
+    ros::Time swich_time = ros::Time::now();
+    static bool edge = false; // 边沿触发标志
 
     enum DetectingState
     {
-        APPROACHING,
-        HIGH_LEARNING,
-        CYCLE_MODELING,
-        PREPARING,
+        APPROACHING,    // 接近轨道准备高空学习
+        HIGH_LEARNING,  // 高空学习阶段
+        REACH_ENDPOINT, // 建模后到达端点重新建模
+        CYCLE_MODELING, // 循环建模阶段
+        PREPARING,      // 准备投弹阶段
     } detecting_state = APPROACHING;
 
     vision_state_msg.data = true; // 开启视觉扫描
@@ -708,6 +711,12 @@ void detecting(ros::Rate &rate)
     {
         rate.sleep();
         ros::spinOnce();
+
+        if (detecting_state != APPROACHING && detecting_state != REACH_ENDPOINT && target_pose.pose.position.z != -1)
+        {
+            compute.feed(target_pose);
+        }
+
         switch (detecting_state)
         {
         case APPROACHING:
@@ -722,7 +731,8 @@ void detecting(ros::Rate &rate)
                     rate.sleep();
                 }
                 detecting_state = HIGH_LEARNING;
-                hovering(3.0, 1, true, rate);
+                swich_time = ros::Time::now();
+                hovering(3.0, 3, true, rate);
             }
             else
             {
@@ -731,12 +741,9 @@ void detecting(ros::Rate &rate)
             }
             break;
         }
+
         case HIGH_LEARNING:
         {
-            if (target_pose.pose.position.z != -1) // 接受有效点后放入缓存
-            {
-                compute.feed(target_pose);
-            }
 
             establishedPoints = compute.endpoints();
             ROS_INFO("establishedPoints: A(%.2f, %.2f), B(%.2f, %.2f), L=%.2f, valid=%d",
@@ -747,6 +754,76 @@ void detecting(ros::Rate &rate)
             board_ros::track::publish_endpoints_posearray(establishedPoints, target_pose);
             board_ros::track::publish_direction_u(establishedPoints, target_pose);
             target_pub.publish(target_pose);
+
+            if (ros::Time::now() - swich_time > ros::Duration(30.0))
+            {
+                detecting_state = CYCLE_MODELING;
+                swich_time = ros::Time::now();
+            }
+            break;
+        }
+
+        case REACH_ENDPOINT:
+        {
+            set_and_pub_pose(establishedPoints.A[0], establishedPoints.A[1], 3);
+            while (distance(current_pose, pose.pose.position) > threshold_distance)
+            {
+                ros::spinOnce();
+                local_pos_pub.publish(pose);
+                rate.sleep();
+            }
+
+            // 移动位置之后重新建模
+            compute.reset();
+            detecting_state = HIGH_LEARNING;
+            swich_time = ros::Time::now();
+            hovering(3.0, 3, true, rate);
+        }
+
+        case PREPARING:
+        {
+            // 进入投弹准备阶段
+            ros::Time tA, tB;
+            static double bomb_time;
+
+            establishedPoints = compute.endpoints();
+            if (compute.predictPassTimes(ros::Time::now(), tA, tB))
+            {
+                ROS_INFO("Next pass times: tA=%.2f, tB=%.2f", tA.toSec(), tB.toSec());
+            }
+
+            // 等待循环建模稳定进入投弹预测
+            if (ros::Time::now() - swich_time > ros::Duration(5.0))
+            {
+                std::pair<ros::Time, ros::Time> window_out;
+                ros::Time window_centre;
+                compute.computeReleaseWindow(establishedPoints.A, ros::Time::now(), window_out, &window_centre);
+
+                // 仿真投弹是否成功
+                if ((abs(ros::Time::now().toSec() - window_centre.toSec()) < 0.02) && !edge)
+                {
+                    bomb_time = window_centre.toSec();
+                    // 保证仿真不会被重复触发
+                    edge = true;
+                }
+
+                if ((abs(ros::Time::now().toSec() - compute.config().drop.T_drop - bomb_time - compute.config().drop.sys_delay) < 0.02) && edge)
+                {
+                    edge = false;
+                    if (distance(current_pose, target_pose.pose.position) < threshold_distance)
+                    {
+                        ROS_INFO("BOMBING SUCCEEDED");
+                        ROS_INFO("BOMBING SUCCEEDED");
+                        ROS_INFO("BOMBING SUCCEEDED");
+                    }
+                    else
+                    {
+                        ROS_INFO("BOMBING FAILED,the distance is %.2f", distance(current_pose, target_pose.pose.position));
+                        ROS_INFO("BOMBING FAILED,the distance is %.2f", distance(current_pose, target_pose.pose.position));
+                        ROS_INFO("BOMBING FAILED,the distance is %.2f", distance(current_pose, target_pose.pose.position));
+                    }
+                }
+            }
             break;
         }
         }
