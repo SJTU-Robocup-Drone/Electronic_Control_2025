@@ -71,7 +71,7 @@ namespace board_ros
         struct DirectParams
         {
             double v_alpha{0.25};       // 速度指数平滑系数（0~1，越大越敏感）
-            double trigger_radius{0.0}; // 触发半径（m），<=0 则不启用距离触发
+            double trigger_radius{1.0}; // 触发半径（m），<=0 则不启用距离触发
             double max_horizon{5.0};    // 允许的最大提前量（s），太远的时刻作废
         };
 

@@ -798,19 +798,28 @@ void detecting(ros::Rate &rate)
         {
             // 进入投弹准备阶段
             ros::Time tA, tB;
+            ros::Time window_centre;
+
             static double bomb_time;
 
             establishedPoints = compute.endpoints();
-            if (compute.predictPassTimes(ros::Time::now(), tA, tB))
+            // if (compute.predictPassTimes(ros::Time::now(), tA, tB))
+            // {
+            //     ROS_INFO("Next pass times: tA=%.2f, tB=%.2f", tA.toSec(), tB.toSec());
+            // }
+
+            
+            double miss;
+            if (compute.solveDirectRelease(ros::Time::now(), window_centre, &miss))
             {
-                ROS_INFO("Next pass times: tA=%.2f, tB=%.2f", tA.toSec(), tB.toSec());
+                ROS_INFO("DirectRelease: t_rel=%.2f  miss≈%.2fm", window_centre.toSec(), miss);
+                // 触发投弹：fabs(ros::Time::now().toSec() - t_rel.toSec()) < 0.02
             }
 
             // 等待循环建模稳定进入投弹预测
             if (ros::Time::now() - swich_time > ros::Duration(5.0))
             {
                 std::pair<ros::Time, ros::Time> window_out;
-                ros::Time window_centre;
                 compute.computeReleaseWindow(establishedPoints.A, ros::Time::now(), window_out, &window_centre);
 
                 // 仿真投弹是否成功
