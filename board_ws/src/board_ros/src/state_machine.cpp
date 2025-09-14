@@ -86,7 +86,7 @@ void adjust_by_pose(ros::Rate &rate, float adj_height);
 void vertically_set_vel_to_bomb(float v, float bomb_height, float lowest_height, ros::Rate &rate);
 
 void check_left_bombs(ros::Rate &rate);
-void update_params();
+void update_params(ros::NodeHandle &nh);
 void oa_check_arrival();
 
 void auto_land_and_disarmed(mavros_msgs::SetMode land_set_mode);
@@ -297,7 +297,7 @@ void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
     check_left_bombs(rate);
 
     // 参数热更新
-    // update_params();
+    // update_params(nh);
 
     // 导航前先悬停，给建图留时间
     ROS_INFO("Hovering before navigating...");
