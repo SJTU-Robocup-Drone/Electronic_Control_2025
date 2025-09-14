@@ -50,10 +50,14 @@ void nav_check_cb(const mavros_msgs::PositionTarget::ConstPtr &msg)
             last_nav_point = current_nav_pose.pose.position;
             nav_request = ros::Time::now();
         }
-        else if (ros::Time::now() - nav_request > ros::Duration(10.0))
+        else 
         {
-            is_stuck = true;
-            nav_request = ros::Time::now();
+            double stuckDuration = (ros::Time::now() - nav_request).toSec();
+            ROS_INFO("the drone has been stuck for %.2f seconds",stuckDuration);
+            if (stuckDuration > 4.0){
+                is_stuck = true;
+                nav_request = ros::Time::now();
+            }
         }
     }
 }

@@ -57,7 +57,7 @@ bool is_takeoff = false;
 bool is_moving_target = false;
 bool is_param_set = false;
 
-const double threshold_distance = 0.1;
+const double threshold_distance = 0.2;
 
 void takeoff(ros::Rate &rate)
 {
