@@ -130,7 +130,7 @@ def detect_red_cross(frame):
 def check_queue(items, class_id, confidence, x, y, z):
     item = items[class_id]
     if confidence > 0.7:
-        if item[1] < 3:
+        if item[1] <= 3:
             item[1] += 1
             item[2].append([x, y, z])
         else:
