@@ -74,8 +74,8 @@ void check_bombing();
 void set_index_and_retry(RetryPoint &retry_point);
 void check_index(ros::Rate &rate);
 void pub_searching_or_retrying_point(RetryPoint &retry_point);
-void check_stuck();
-void check_arrival();
+void se_check_stuck();
+void se_check_arrival();
 
 void pub_bomb_navigating_or_retrying_point();
 void bn_check_stuck();
@@ -198,10 +198,10 @@ void searching(ros::Rate &rate)
         ros::spinOnce();
 
         // 如果ego-planner卡住了，放弃当前搜索点，同时暂时关闭导航
-        check_stuck();
+        se_check_stuck();
 
-        // 检查到点和及之后的状态切换
-        check_arrival();
+        // 检查到点和之后的状态切换
+        se_check_arrival();
 
         if (need_exit) return;
 
@@ -749,7 +749,7 @@ void pub_searching_or_retrying_point(RetryPoint &retry_point)
     }
 }
 
-void check_stuck()
+void se_check_stuck()
 {
     if (is_stuck)
     {
@@ -768,7 +768,7 @@ void check_stuck()
     }
 }
 
-void check_arrival()
+void se_check_arrival()
 {
     if (distance(current_pose, nav_pose.pose.position) < threshold_distance)
     {
