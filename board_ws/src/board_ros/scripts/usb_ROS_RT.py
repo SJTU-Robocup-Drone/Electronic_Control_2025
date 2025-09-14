@@ -295,42 +295,42 @@ def detect_targets():
         cv2.destroyAllWindows()
         cap.release()
         rospy.loginfo("[INFO] 已安全退出检测线程。")
+        
+def vision_state_callback(msg):
+    global scanning_active, detection_thread, stop_event
 
-    def vision_state_callback(msg):
-        global scanning_active, detection_thread, stop_event
+    if msg.data and not scanning_active:
+        rospy.loginfo("[INFO] 收到视觉启动指令，开始扫描...")
+        scanning_active = True
+        stop_event.clear()
 
-        if msg.data and not scanning_active:
-            rospy.loginfo("[INFO] 收到视觉启动指令，开始扫描...")
-            scanning_active = True
-            stop_event.clear()
+        detection_thread = threading.Thread(target=detect_targets)
+        detection_thread.daemon = True
+        detection_thread.start()
 
-            detection_thread = threading.Thread(target=detect_targets)
-            detection_thread.daemon = True
-            detection_thread.start()
+    elif not msg.data and scanning_active:
+        rospy.loginfo("[INFO] 收到视觉停止指令，停止扫描...")
+        stop_event.set()
+        scanning_active = False
 
-        elif not msg.data and scanning_active:
-            rospy.loginfo("[INFO] 收到视觉停止指令，停止扫描...")
+def odom_callback(msg):
+    global odom_pos
+    odom_pos = msg.pose.pose.position
+
+if __name__ == "__main__":
+    rospy.init_node("object_detector")
+
+    # 创建发布器
+    detection_pub = rospy.Publisher("/detection_results", PointStamped, queue_size=10)
+    random_pub = rospy.Publisher("/random_target", PointStamped, queue_size=2)
+    rospy.Subscriber("/vision_state", Bool, vision_state_callback)
+    rospy.Subscriber("/odom_high_freq", Odometry, odom_callback)
+    rospy.loginfo("[INFO] 视觉节点已启动，等待/vision_state指令...")
+
+    try:
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        if scanning_active:
             stop_event.set()
-            scanning_active = False
-
-    def odom_callback(msg):
-        global odom_pos
-        odom_pos = msg.pose.pose.position
-
-    if __name__ == "__main__":
-        rospy.init_node("object_detector")
-
-        # 创建发布器
-        detection_pub = rospy.Publisher("/detection_results", PointStamped, queue_size=10)
-        random_pub = rospy.Publisher("/random_target", PointStamped, queue_size=2)
-        rospy.Subscriber("/vision_state", Bool, vision_state_callback)
-        rospy.Subscriber("/odom_high_freq", Odometry, odom_callback)
-        rospy.loginfo("[INFO] 视觉节点已启动，等待/vision_state指令...")
-
-        try:
-            rospy.spin()
-        except rospy.ROSInterruptException:
-            if scanning_active:
-                stop_event.set()
-                detection_thread.join(timeout=1.0)
-            rospy.loginfo("[INFO] 节点已安全关闭。")
+            detection_thread.join(timeout=1.0)
+        rospy.loginfo("[INFO] 节点已安全关闭。")
