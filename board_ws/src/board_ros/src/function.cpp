@@ -82,7 +82,7 @@ double distance(const geometry_msgs::PoseStamped &current_pose_, const geometry_
 // 读取参数到既有变量名
 void init_params(ros::NodeHandle &nh)
 {
-    std::string filename = "/home/amov/board_ws/src/board_ros/points/param.txt";
+    std::string filename = "/home/michmax/Electronic_Control_2025/board_ws/src/board_ros/points/param.txt";
     std::string line;
     std::string valid_str;
     int pos1 = 0;

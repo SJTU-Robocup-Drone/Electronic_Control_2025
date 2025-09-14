@@ -90,7 +90,7 @@ int main(int argc, char **argv)
     ros::Publisher target_pub = nh.advertise<geometry_msgs::PoseStamped>("/target", 10);
     ros::Publisher vision_control_pub = nh.advertise<std_msgs::Bool>("/vision_state", 10);
 
-    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 10, pose_cb);
+    ros::Subscriber pose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/iris_0/mavros/local_position/pose", 10, pose_cb);
     ros::Subscriber man_check_sub = nh.subscribe<std_msgs::Int32>("/manba_input", 10, man_check_cb);
     ros::Subscriber return_state_sub = nh.subscribe<std_msgs::Bool>("/return_state", 10, return_state_cb);
     ros::Subscriber is_done_sub = nh.subscribe<std_msgs::Bool>("/done_state", 10, is_done_cb);

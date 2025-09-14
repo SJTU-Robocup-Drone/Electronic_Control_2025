@@ -69,14 +69,14 @@ void takeoff(ros::Rate &rate)
     {
         ros::spinOnce();
         // 自动切换到offboard模式（仅限虚拟机）
-        // if (current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(5.0)))
-        // {
-        //     if (set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent)
-        //     {
-        //         ROS_INFO("Offboard enabled");
-        //     }
-        //     last_request = ros::Time::now();
-        // }
+         if (current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(5.0)))
+         {
+             if (set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent)
+             {
+                 ROS_INFO("Offboard enabled");
+             }
+             last_request = ros::Time::now();
+         }
 
         // 切进offboard模式后就解锁
         if (!current_state.armed && (ros::Time::now() - last_request > ros::Duration(5.0)) && current_state.mode == "OFFBOARD")
@@ -429,7 +429,7 @@ void bombing(ros::Rate &rate)
             // target_index_msg.data = target_index;
             // manba_pub.publish(target_index_msg);
             command = std::to_string(target_index + 1) + std::to_string(0) + "\n";
-            ser.write(command);
+            // ser.write(command);
             ROS_INFO_STREAM("Sent command to servo" << target_index + 1 << ": " << command);
             isBombed = true;
             // 标记当前目标为已投掷
@@ -471,15 +471,15 @@ void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
         // target_index_msg.data = target_index;
         // manba_pub.publish(target_index_msg);
         command = std::to_string(target_index + 1) + std::to_string(0) + "\n";
-        ser.write(command);
+        // ser.write(command);
         ROS_INFO_STREAM("Sent command to servo" << target_index + 1 << ": " << command);
         hovering(0.9, 0.5, false, rate);
         target_index++;
     }
 
     // 若串口未关闭，关闭串口
-    if (ser.isOpen())
-        ser.close();
+    //if (ser.isOpen())
+        //ser.close();
 
     if (!is_param_set && obstacle_zone_index >= 1)
     {
@@ -535,8 +535,8 @@ void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
 void descending(ros::Rate &rate)
 {
     // 若串口未关闭，关闭串口
-    if (ser.isOpen())
-        ser.close();
+    //if (ser.isOpen())
+        //ser.close();
     set_and_pub_pose(current_pose.pose.position.x, current_pose.pose.position.y, 0.3);
     while (distance(current_pose, pose.pose.position) > threshold_distance && ros::ok())
     {

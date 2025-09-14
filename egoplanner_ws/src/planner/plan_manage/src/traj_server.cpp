@@ -290,7 +290,7 @@ int main(int argc, char **argv)
   ros::Subscriber bspline_sub = node.subscribe("planning/bspline", 10, bsplineCallback);
 
   pos_cmd_pub = node.advertise<quadrotor_msgs::PositionCommand>("/position_cmd", 50);
-  raw_setpoint_pub = node.advertise<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 50);
+  raw_setpoint_pub = node.advertise<mavros_msgs::PositionTarget>("/iris_0/mavros/setpoint_raw/local", 50);
   nav_state_sub = node.subscribe<std_msgs::Bool>("/nav_state", 10, nav_state_cb);
   escape_state_sub = node.subscribe<std_msgs::Bool>("/escape_state", 10, escape_state_cb);
 

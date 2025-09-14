@@ -82,8 +82,8 @@ void init_nav_interfaces(ros::NodeHandle &nh)
 {
     target_pose.pose.position.z = -1;
 
-    local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
-    local_vel_pub = nh.advertise<geometry_msgs::Twist>("/mavros/setpoint_velocity/cmd_vel_unstamped", 10);
+    local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/iris_0/mavros/setpoint_position/local", 10);
+    local_vel_pub = nh.advertise<geometry_msgs::Twist>("/iris_0/mavros/setpoint_velocity/cmd_vel_unstamped", 10);
     nav_goal_pub = nh.advertise<geometry_msgs::PoseStamped>("/control/move_base_simple/goal", 10);
     nav_state_pub = nh.advertise<std_msgs::Bool>("/nav_state", 10);
     return_state_pub = nh.advertise<std_msgs::Bool>("/return_state", 10);
@@ -92,9 +92,9 @@ void init_nav_interfaces(ros::NodeHandle &nh)
     vision_state_pub = nh.advertise<std_msgs::Bool>("/vision_state", 10);
     target_pub = nh.advertise<geometry_msgs::PoseStamped>("/target", 10);
 
-    local_pos_sub = nh.subscribe<nav_msgs::Odometry>("/odom_high_freq", 10, pose_cb);
-    state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, state_cb);
-    nav_check_sub = nh.subscribe<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 50, nav_check_cb);
+    local_pos_sub = nh.subscribe<nav_msgs::Odometry>("/output_odom", 10, pose_cb);
+    state_sub = nh.subscribe<mavros_msgs::State>("/iris_0/mavros/state", 10, state_cb);
+    nav_check_sub = nh.subscribe<mavros_msgs::PositionTarget>("/iris_0/mavros/setpoint_raw/local", 50, nav_check_cb);
     random_target_sub = nh.subscribe<geometry_msgs::PointStamped>("/random_target", 10, random_target_cb);
     target_sub = nh.subscribe<geometry_msgs::PoseStamped>("/target", 10, target_cb);
     return_state_sub = nh.subscribe<std_msgs::Bool>("/return_state", 10, return_state_cb);
@@ -102,8 +102,8 @@ void init_nav_interfaces(ros::NodeHandle &nh)
     detection_sub = nh.subscribe<geometry_msgs::PointStamped>("/detection_results", 10, detection_cb);
     adjusted_goal_sub = nh.subscribe<geometry_msgs::PoseStamped>("/adjusted_goal", 10, adjusted_goal_cb);
 
-    arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
-    set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
+    arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/iris_0/mavros/cmd/arming");
+    set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("/iris_0/mavros/set_mode");
 
     process_target_timer = nh.createTimer(ros::Duration(0.02), [](const ros::TimerEvent &)
                                           { process_target_cb(); });

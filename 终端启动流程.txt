@@ -1,12 +1,15 @@
-m1    （启动msg_MID360.launch）
-m2    （启动mapping_mid360.launch）
-px4    （启动px4.launch）
-ep    （启动ego_planner的run_in_real_world.launch）
-con1    （启动用来给飞控发布定位的mid360.cpp）
-con2    （启动offboard.cpp）
-read    （启动readfile.cpp）
-d435i    （启动d435i_3d_ROS.py）
-pcd    （启动publish_pcd.cpp，如果不用先建图后定位的方法的话就不用启动这个）
-setp    (启动set_param.cpp)
-
-注意：m1要最先启动，con2启动之前一定要先启动setp，m2一定要在起飞区启动
+# 1.启动gazebo场景
+roslaunch px4 outdoor1.launch
+# 2.启动激光雷达
+roslaunch aloam_velodyne aloam_velodyne_HDL_32.launch
+# 3.启动定位的发布脚本&类型转换脚本
+cd ~/XTDrone/sensing/slam/laser_slam/script
+python3 geo2nav.py
+# 4.启动egoplanner
+cd ~/Electronic_Control_2025/egoplanner_ws
+source devel/setup.bash
+roslaunch ego_planner run_in_real_world.launch
+# 5.启动控制程序
+cd ~/Electronic_Control_2025/board_ws
+source devel/setup.bash
+rosrun board_ros offb_node

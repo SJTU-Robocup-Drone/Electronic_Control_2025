@@ -18,7 +18,7 @@ namespace ego_planner
     has_original_target_ = false;
     escape_target_ = Eigen::Vector3d::Zero();
     original_target_ = Eigen::Vector3d::Zero();
-    escape_pose_pub_ = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 50);
+    escape_pose_pub_ = nh.advertise<geometry_msgs::PoseStamped>("/iris_0/mavros/setpoint_position/local", 50);
     escape_state_pub_ = nh.advertise<std_msgs::Bool>("/escape_state", 10);
     self_trig_pub_ = nh.advertise<geometry_msgs::PoseStamped>("/control/move_base_simple/goal", 10);
     adjusted_goal_pub = nh.advertise<geometry_msgs::PoseStamped>("/adjusted_goal", 10);
