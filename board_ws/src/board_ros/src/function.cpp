@@ -82,105 +82,35 @@ double distance(const geometry_msgs::PoseStamped &current_pose_, const geometry_
 // 读取参数到既有变量名
 void init_params(ros::NodeHandle &nh)
 {
-    std::string filename = "/home/amov/board_ws/src/board_ros/points/param.txt";
-    std::string line;
-    std::string valid_str;
-    int pos1 = 0;
-    int pos2 = 0;
-
-    std::ifstream infile(filename);
-    if (!infile.is_open())
-    {
-        std::cerr << "无法打开文件: " << filename << std::endl;
-        return;
-    }
-
-    int num_of_searching_points = 0;
-    std::getline(infile, line);
-    pos1 = line.find("= ") + 1;
-    pos2 = line.find(';');
-    valid_str = line.substr(pos1 + 1, pos2 - pos1 - 1);
-    num_of_searching_points = stoi(valid_str);
+    int num_of_searching_points;
+    nh.getParam("/num_of_searching_points",num_of_searching_points);
     for (int i = 0; i < num_of_searching_points; ++i)
     {
         float point[3];
-        for (int j = 0; j < 3; ++j)
-        {
-            std::getline(infile, line);
-            pos1 = line.find("= ");
-            pos2 = line.find(';');
-            valid_str = line.substr(pos1 + 1, pos2 - pos1 - 1);
-            point[j] = stof(valid_str);
-        }
+        nh.getParam("/searching_point_" + std::to_string(i) + "_x", point[0]);
+        nh.getParam("/searching_point_" + std::to_string(i) + "_y", point[1]);
+        nh.getParam("/searching_point_" + std::to_string(i) + "_z", point[2]);
         searching_points.push_back(createPoint(point[0], point[1], point[2]));
     }
 
-    int num_of_obstacle_zone_points = 0;
-    std::getline(infile, line);
-    pos1 = line.find("= ") + 1;
-    pos2 = line.find(';');
-    valid_str = line.substr(pos1 + 1, pos2 - pos1 - 1);
-    num_of_obstacle_zone_points = stoi(valid_str);
+    int num_of_obstacle_zone_points;
+    nh.getParam("/num_of_obstacle_zone_points",num_of_obstacle_zone_points);
     for (int i = 0; i < num_of_obstacle_zone_points; ++i)
     {
         float point[3];
-        for (int j = 0; j < 3; ++j)
-        {
-            std::getline(infile, line);
-            pos1 = line.find("= ");
-            pos2 = line.find(';');
-            valid_str = line.substr(pos1 + 1, pos2 - pos1 - 1);
-            point[j] = stof(valid_str);
-        }
+        nh.getParam("/obstacle_zone_point_" + std::to_string(i) + "_x", point[0]);
+        nh.getParam("/obstacle_zone_point_" + std::to_string(i) + "_y", point[1]);
+        nh.getParam("/obstacle_zone_point_" + std::to_string(i) + "_z", point[2]);
         obstacle_zone_points.push_back(createPoint(point[0], point[1], point[2]));
     }
 
     // 新增功能：设置是否需要投弹
     for (int i = 0; i < 7; ++i)
     {
-        int isNeedForBomb;
-        std::getline(infile, line);
-        pos1 = line.find("= ");
-        pos2 = line.find(';');
-        valid_str = line.substr(pos1 + 1, pos2 - pos1 - 1);
-        isNeedForBomb = stoi(valid_str);
-        targetArray[i].isNeedForBomb = (isNeedForBomb == 1);
+        bool isNeedForBomb;
+        nh.getParam("/target_" + std::to_string(i),isNeedForBomb);
+        targetArray[i].isNeedForBomb = isNeedForBomb;
     }
-    infile.close();
-
-    // std::vector<double> searching_x_points, searching_y_points, searching_z_points;
-    // if (nh.getParam("searching_points/x", searching_x_points) &&
-    //     nh.getParam("searching_points/y", searching_y_points) &&
-    //     nh.getParam("searching_points/z", searching_z_points))
-    // {
-
-    //     searching_points.clear();
-    //     for (size_t i = 0; i < searching_x_points.size(); ++i)
-    //     {
-    //         geometry_msgs::Point point;
-    //         point.x = searching_x_points[i];
-    //         point.y = searching_y_points[i];
-    //         point.z = searching_z_points[i];
-    //         searching_points.push_back(point);
-    //     }
-    // }
-
-    // std::vector<double> obstacle_x_points, obstacle_y_points, obstacle_z_points;
-    // if (nh.getParam("obstacle_points/x", obstacle_x_points) &&
-    //     nh.getParam("obstacle_points/y", obstacle_y_points) &&
-    //     nh.getParam("obstacle_points/z", obstacle_z_points))
-    // {
-
-    //     obstacle_zone_points.clear();
-    //     for (size_t i = 0; i < obstacle_x_points.size(); ++i)
-    //     {
-    //         geometry_msgs::Point point;
-    //         point.x = obstacle_x_points[i];
-    //         point.y = obstacle_y_points[i];
-    //         point.z = obstacle_z_points[i];
-    //         obstacle_zone_points.push_back(point);
-    //     }
-    // }
 }
 
 // 速度限幅
