@@ -255,6 +255,7 @@ void adjusting(ros::Rate &rate)
 
     // 判断视觉误识别并刷新目标点
     check_vision(adj_height);
+    if(need_exit) return;
 
     // 临时减小距离阈值，并预先调整姿态
     ROS_INFO("Adjusting pose to target...");

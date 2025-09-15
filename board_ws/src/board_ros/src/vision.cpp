@@ -20,6 +20,11 @@ double coordY = 0;
 void process_target_cb();
 void receive_target();
 
+// 距离计算工具变量
+geometry_msgs::Point target_point;
+double min_dist;
+int candidate_index;
+
 // 投弹仓相对于飞控的位置偏移补偿
 double offset[3][2] = {{0, 0.16}, {0.16, 0}, {0, -0.16}};
 // 摄像头相对于飞控的位置偏移补偿
@@ -71,9 +76,6 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
     if (it != target_types.end())
     {
         int type = it->second;
-
-        // 更新当前目标索引
-        current_index = type;
 
         geometry_msgs::PoseStamped coord;
         if (getPoseAt(msg->header.stamp, coord, current_pose_buffer, current_pose_len))
@@ -132,7 +134,6 @@ void random_target_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
 {
     if (targetArray[6].isBombed || !vision_state_msg.data)
         return;        // 如果vision_state为假或已经投过随机靶就不需要更新了
-    current_index = 6; // 随机靶的索引为6
     // 定义相机系
     double rel_x = msg->point.x;
     double rel_y = msg->point.y;
@@ -198,40 +199,52 @@ void process_target_cb()
     }
     else
     {
-        // 投弹阶段：按优先级选择目标
+        // 按优先级和距离远近选择目标
+        min_dist = 1000;
+        
         for (int i = 4; i >= 0; i--)
         {
-            // 如果扫描到了随机靶而且没有投过随机靶，就投随机靶
+            // 随机靶的处理
             if (targetArray[6].isNeedForBomb && targetArray[6].isValid && !targetArray[6].isBombed)
             {
                 is_found = true;
 
-                target_pose.header.frame_id = "map";
-                target_pose.pose.position.x = targetArray[6].x;
-                target_pose.pose.position.y = targetArray[6].y;
-                target_pose.pose.position.z = 0.9;
-                break;
+                target_point.x = targetArray[6].x;
+                target_point.y = targetArray[6].y;
+                target_point.z = 0.9;
+                if(distance(current_pose, target_point) < min_dist){
+                    candidate_index = 6;
+                }
+
             }
 
             if (targetArray[i].isNeedForBomb && targetArray[i].isValid && !targetArray[i].isBombed)
             {
                 is_found = true;
 
-                target_pose.header.frame_id = "map";
-                target_pose.pose.position.x = targetArray[i].x;
-                target_pose.pose.position.y = targetArray[i].y;
-                if ((i != 0 && i != 1 && i != 2) || is_done)
-                    target_pose.pose.position.z = 0.9; // 只有searching结束 才会去考虑后三个低分靶标
-
-                break;
+                target_point.x = targetArray[i].x;
+                target_point.y = targetArray[i].y;
+                target_point.z = 0.9;
+                // 只有searching结束 才会去考虑后三个低分靶标
+                if ((i != 0 && i != 1 && i != 2) || is_done){
+                    if(distance(current_pose, target_point) < min_dist){
+                        candidate_index = i;
+                    }   
+                }
             }
         }
     }
 
-    if (!is_found)
-    {
+
+    if (is_found) {
+        current_index = candidate_index;
+        target_pose.header.frame_id = "map";
+        target_pose.pose.position.x = targetArray[current_index].x;
+        target_pose.pose.position.y = targetArray[current_index].y;
+        target_pose.pose.position.z = 0.9;
+    }
+    else {
         target_pose.pose.position.z = -1;
-        is_found = false;
     }
 
     receive_target();
@@ -254,7 +267,7 @@ void receive_target()
     }
 
     // 判断是否为移动靶
-    if (target_pose.pose.position.z == 2.0)
+    if (current_index == 4)
         is_moving_target = true;
 
     // 如果调整阶段靶标位置连续两次偏差超过0.5米，则认为视觉误识别（假定OVERLOOKING的识别结果没有问题，因为之前没有出过错）
