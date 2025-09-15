@@ -436,7 +436,7 @@ namespace ego_planner
         escape_state_msg_.data = false;
         escape_state_pub_.publish(escape_state_msg_);
         ROS_INFO("Switching to INIT state and planning to original target.");
-        ros::Duration(1.0).sleep(); // wait for the above message to be sent
+        ros::Duration(0.5).sleep(); // wait for the above message to be sent
         original_target_pose_.header.stamp = ros::Time::now();
         original_target_pose_.header.frame_id = "map";
         original_target_pose_.pose.position.x = end_pt_(0);
