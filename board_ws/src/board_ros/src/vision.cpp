@@ -1,6 +1,13 @@
 #include "vision.h"
 #include "function.h"
 
+// 视觉历史缓冲
+struct TimedPose
+{
+    geometry_msgs::Point pos;
+    ros::Time stamp;
+};
+
 // 定义视觉缓存
 std::deque<TimedPose> history_;
 const size_t MAX_HISTORY = 10; // 缓冲 10 帧
@@ -76,21 +83,21 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
     if (it != target_types.end())
     {
         int type = it->second;
-
         geometry_msgs::PoseStamped coord;
-        if (getPoseAt(msg->header.stamp, coord, current_pose_buffer, current_pose_len))
-        {
-            coordX = coord.pose.position.x;
-            coordY = coord.pose.position.y;
-        }
-        else
-        {
-            ROS_INFO("Cannot find the current_pose at the same time of camera");
+        // 查找历史时间戳功能
+        // if (getPoseAt(msg->header.stamp, coord, current_pose_buffer, current_pose_len))
+        // {
+        //     coordX = coord.pose.position.x;
+        //     coordY = coord.pose.position.y;
+        // }
+        // else
+        // {
+        //    ROS_INFO("Cannot find the current_pose at the same time of camera");
             coordX = current_pose.pose.position.x;
             coordY = current_pose.pose.position.y;
-        }
+        //}
 
-        // 定义机体系x，y
+        // 定义机体系x，y 
         double drone_x = -rel_y + cam_offset;
         double drone_y = -rel_x;
         // 获取无人机偏航角

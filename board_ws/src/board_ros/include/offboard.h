@@ -131,7 +131,7 @@ struct RetryPoint
     RetryPoint() {}
     RetryPoint(geometry_msgs::Point point, int index) : point(point),index(index) {}
 };
-extern std::queue<RetryPoint> retry_searching_points;            // 针对searching点的重试队列
+extern std::queue<RetryPoint> retry_searching_points;  // 针对searching点的重试队列
 extern std::queue<RetryPoint> retry_navigating_points; // 针对避障点的重试队列
 
 // 靶标数组
@@ -145,12 +145,4 @@ struct Target
 };
 extern Target targetArray[7];
 
-// 视觉历史缓冲
-struct TimedPose
-{
-    geometry_msgs::Point pos;
-    ros::Time stamp;
-};
 
-extern std::deque<TimedPose> history_;
-extern const size_t MAX_HISTORY;

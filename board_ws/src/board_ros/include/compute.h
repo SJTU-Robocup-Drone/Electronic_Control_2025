@@ -1,12 +1,10 @@
 #pragma once
-#include <Eigen/Core>
 #include <Eigen/Dense>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/Vector3Stamped.h>
-#include <geometry_msgs/Vector3.h>
 #include <ros/ros.h>
-#include <utility>
+
 
 namespace board_ros
 {
