@@ -317,8 +317,8 @@ void bomb_navigating(ros::Rate &rate)
             // 为什么bomb_navigating卡住了要放弃searching_points？是不是有BUG
             nav_state_msg.data = false;
             nav_state_pub.publish(nav_state_msg);
-            
-            RetryPoint retry_point(nav_pose.pose.position,current_index);
+
+            RetryPoint retry_point(nav_pose.pose.position, current_index);
             if (!is_retrying_bombing_point)
                 retry_navigating_points.push(retry_point); // 将当前导航点存入重试队列
             break;
@@ -754,7 +754,7 @@ void detecting(ros::Rate &rate)
                      establishedPoints.A.x(), establishedPoints.A.y(),
                      establishedPoints.B.x(), establishedPoints.B.y(),
                      establishedPoints.L, establishedPoints.valid);
-            
+
             // 发布生成的直线模型
             board_ros::track::publish_endpoints(establishedPoints, target_pose);
             target_pub.publish(target_pose);
@@ -785,13 +785,35 @@ void detecting(ros::Rate &rate)
             }
 
             // 移动位置之后重新建模
-            compute.reset();
-            detecting_state = HIGH_LEARNING;
+            // compute.reset();
+            // detecting_state = HIGH_LEARNING;
             swich_time = ros::Time::now();
 
             ROS_INFO("Enter second learning");
-            hovering(1.5, 2, true, rate);
+            hovering(0.6, 1.5, false, rate);
             is_second_learning = true;
+
+            // 直接投弹
+            static bool tank_state = 0;
+            while (ros::ok() && ros::Time::now() - last_request < ros::Duration(30))
+            {
+                ros::spinOnce();
+                local_pos_pub.publish(pose); // 保持悬停
+                rate.sleep();
+                geometry_msgs::PoseStamped tgt_pose = target_pose;
+                tgt_pose.pose.position.z = current_pose.pose.position.z;
+                if (distance(current_pose, tgt_pose.pose.position) >= 0.40)
+                {
+                    tank_state = 1;
+                }
+                if (distance(current_pose, tgt_pose.pose.position) <= 0.20 && tank_state == 1)
+                {
+                    tank_state = 0;
+                    mission_state = BOMBING;
+                    ROS_INFO("Bomb now");
+                    return;
+                }
+            }
         }
 
         case PREPARING:
@@ -808,7 +830,6 @@ void detecting(ros::Rate &rate)
             //     ROS_INFO("Next pass times: tA=%.2f, tB=%.2f", tA.toSec(), tB.toSec());
             // }
 
-            
             double miss;
             if (compute.solveDirectRelease(ros::Time::now(), window_centre, &miss))
             {
