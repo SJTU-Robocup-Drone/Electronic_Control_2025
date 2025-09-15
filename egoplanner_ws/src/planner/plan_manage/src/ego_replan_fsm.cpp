@@ -196,7 +196,7 @@ namespace ego_planner
     // if it's trapped in obstacles, it should be moved to a safe area.
     auto grid_map = planner_manager_->grid_map_;
     int target_in_inflated_zone_ = !isSafe(end_pt_, 1);
-    ROS_INFO("get isSafe of target = %d",target_in_inflated_zone_);
+    ROS_INFO("get isSafe of target = %d", !target_in_inflated_zone_);
     if (target_in_inflated_zone_) {
       ROS_WARN("Target is not safe! Try to adjust the target point.");
       // finding a new target
@@ -221,7 +221,7 @@ namespace ego_planner
 
     // 检测是否在障碍物膨胀区内
     is_in_inflated_zone_ = !isSafe(odom_pos_, 1);
-    ROS_INFO("get isSafe of drone = %d",is_in_inflated_zone_);
+    ROS_INFO("get isSafe of drone = %d", !is_in_inflated_zone_);
     if (is_in_inflated_zone_) {
       ROS_WARN("Drone is not safe! Starting escape procedure.");
     
@@ -436,7 +436,7 @@ namespace ego_planner
         escape_state_msg_.data = false;
         escape_state_pub_.publish(escape_state_msg_);
         ROS_INFO("Switching to INIT state and planning to original target.");
-        ros::Duration(1.0).sleep(); // wait for the above message to be sent
+        ros::Duration(0.5).sleep(); // wait for the above message to be sent
         original_target_pose_.header.stamp = ros::Time::now();
         original_target_pose_.header.frame_id = "map";
         original_target_pose_.pose.position.x = end_pt_(0);

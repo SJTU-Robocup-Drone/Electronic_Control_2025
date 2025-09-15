@@ -279,6 +279,7 @@ void nav_state_cb(const std_msgs::Bool::ConstPtr &msg)
 void escape_state_cb(const std_msgs::Bool::ConstPtr &msg)
 {
   is_escaping = msg -> data;
+  if (is_escaping) receive_traj_ = false;
 }
 
 int main(int argc, char **argv)

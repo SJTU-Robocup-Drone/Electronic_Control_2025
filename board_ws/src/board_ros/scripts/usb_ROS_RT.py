@@ -177,7 +177,7 @@ def detect_targets():
     # rospy.loginfo("[INFO] 模型加载完成。")
 
     # 修改：使用TensorRT模型替代PyTorch模型
-    engine_path = '/home/amov/board_ws/src/board_ros/scripts/best_0909.trt'  # TensorRT引擎文件路径
+    engine_path = '/home/amov/board_ws/src/board_ros/scripts/best_0909.engine'  # TensorRT引擎文件路径
     rospy.loginfo("[INFO] 加载TensorRT模型中...")
 
     try:
@@ -258,14 +258,79 @@ def detect_targets():
                     x, y, z = check_queue(items, class_id, float(conf), x, y, z)
 
                     # 发布检测结果
-                    if conf > 0.8 and frame_count % (60/vision_rate) == 0:
+                    if conf > 0.8 and frame_count % (60 / vision_rate) == 0:
                         detection_msg = PointStamped()
                         detection_msg.header.stamp = rospy.Time.now()
                         detection_msg.header.frame_id = names[class_id]  # 使用类别名作为frame_id
                         if names[class_id] == "red":
                             cross_center = detect_red_cross(frames)
                             if cross_center != None:
-                              x_new, y_new = cross_center
-                              x_new = (x_new - cx) / fx * camera_height
-                              y_new = (y_new - cy) / fy * camera_height
-                              rospy.loginfo(f"OpenCV检测到: {names[class_id]}, 坐标: X={x_new:.2f}, Y={y_new:.2f}, Z={z:.2f}, 置信度: {conf:.2f}")
+                                x_new, y_new = cross_center
+                                x_new = (x_new - cx) / fx * camera_height
+                                y_new = (y_new - cy) / fy * camera_height
+                                rospy.loginfo(
+                                    f"OpenCV检测到: {names[class_id]}, 坐标: X={x_new:.2f}, Y={y_new:.2f}, Z={z:.2f}, 置信度: {conf:.2f}")
+                                if math.sqrt((x - x_new) ** 2 + (y - y_new) ** 2) <= 0.1:
+                                    detection_msg.point.x = -x_new
+                                    detection_msg.point.y = -y_new
+                                    detection_msg.point.z = z
+                                    random_pub.publish(detection_msg)
+                            else:
+                                rospy.loginfo(f"OpenCV未检测到，不上传话题")
+                        if names[class_id] != "red":
+                            detection_msg.point.x = -x
+                            detection_msg.point.y = -y
+                            detection_msg.point.z = z
+                            detection_pub.publish(detection_msg)
+
+                        rospy.loginfo(
+                            f"YOLO检测到: {names[class_id]}, 坐标: X={x:.2f}, Y={y:.2f}, Z={z:.2f}, 置信度: {conf:.2f}")
+
+
+
+    except Exception as e:
+        rospy.logerr(f"检测过程中出现错误: {e}")
+
+    finally:
+        cv2.destroyAllWindows()
+        cap.release()
+        rospy.loginfo("[INFO] 已安全退出检测线程。")
+        
+def vision_state_callback(msg):
+    global scanning_active, detection_thread, stop_event
+
+    if msg.data and not scanning_active:
+        rospy.loginfo("[INFO] 收到视觉启动指令，开始扫描...")
+        scanning_active = True
+        stop_event.clear()
+
+        detection_thread = threading.Thread(target=detect_targets)
+        detection_thread.daemon = True
+        detection_thread.start()
+
+    elif not msg.data and scanning_active:
+        rospy.loginfo("[INFO] 收到视觉停止指令，停止扫描...")
+        stop_event.set()
+        scanning_active = False
+
+def odom_callback(msg):
+    global odom_pos
+    odom_pos = msg.pose.pose.position
+
+if __name__ == "__main__":
+    rospy.init_node("object_detector")
+
+    # 创建发布器
+    detection_pub = rospy.Publisher("/detection_results", PointStamped, queue_size=10)
+    random_pub = rospy.Publisher("/random_target", PointStamped, queue_size=2)
+    rospy.Subscriber("/vision_state", Bool, vision_state_callback)
+    rospy.Subscriber("/odom_high_freq", Odometry, odom_callback)
+    rospy.loginfo("[INFO] 视觉节点已启动，等待/vision_state指令...")
+
+    try:
+        rospy.spin()
+    except rospy.ROSInterruptException:
+        if scanning_active:
+            stop_event.set()
+            detection_thread.join(timeout=1.0)
+        rospy.loginfo("[INFO] 节点已安全关闭。")

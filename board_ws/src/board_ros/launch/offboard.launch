@@ -1,0 +1,54 @@
+<launch>
+    <node pkg="board_ros" type="offb_node" name="offb_node" output="screen" />
+
+    <!-- 搜索点数量 -->
+    <param name="num_of_searching_points" type="int" value="4" />
+    
+    <!-- 搜索点0坐标 -->
+    <param name="searching_point_0_x" type="double" value="1.5" />
+    <param name="searching_point_0_y" type="double" value="2.5" />
+    <param name="searching_point_0_z" type="double" value="0.8" />
+    
+    <!-- 搜索点1坐标 -->
+    <param name="searching_point_1_x" type="double" value="5.5" />
+    <param name="searching_point_1_y" type="double" value="2.8" />
+    <param name="searching_point_1_z" type="double" value="0.8" />
+    
+    <!-- 搜索点2坐标 -->
+    <param name="searching_point_2_x" type="double" value="4.8" />
+    <param name="searching_point_2_y" type="double" value="-1.5" />
+    <param name="searching_point_2_z" type="double" value="0.8" />
+    
+    <!-- 搜索点3坐标 -->
+    <param name="searching_point_3_x" type="double" value="2.8" />
+    <param name="searching_point_3_y" type="double" value="-1.0" />
+    <param name="searching_point_3_z" type="double" value="0.8" />
+    
+    <!-- 障碍区域点数量 -->
+    <param name="num_of_obstacle_zone_points" type="int" value="3" />
+    
+    <!-- 障碍区域点0坐标 -->
+    <param name="obstacle_zone_point_0_x" type="double" value="6.5" />
+    <param name="obstacle_zone_point_0_y" type="double" value="-3.3" />
+    <param name="obstacle_zone_point_0_z" type="double" value="1.0" />
+    
+    <!-- 障碍区域点1坐标 -->
+    <param name="obstacle_zone_point_1_x" type="double" value="8.55" />
+    <param name="obstacle_zone_point_1_y" type="double" value="-3.3" />
+    <param name="obstacle_zone_point_1_z" type="double" value="1.0" />
+    
+    <!-- 障碍区域点2坐标 -->
+    <param name="obstacle_zone_point_2_x" type="double" value="8.55" />
+    <param name="obstacle_zone_point_2_y" type="double" value="3.3" />
+    <param name="obstacle_zone_point_2_z" type="double" value="1.0" />
+
+    <!-- 靶标开关，选择是否投弹 -->
+    <!-- 依次对应 tent / bunker / bridge / car / tank / Helicopter / red-->
+    <param name="target_0" type="bool" value="true" />
+    <param name="target_1" type="bool" value="true" />
+    <param name="target_2" type="bool" value="true" />
+    <param name="target_3" type="bool" value="true" />
+    <param name="target_4" type="bool" value="true" />
+    <param name="target_5" type="bool" value="true" />
+    <param name="target_6" type="bool" value="true" />
+</launch>
