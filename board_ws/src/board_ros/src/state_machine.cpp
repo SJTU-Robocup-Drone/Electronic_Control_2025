@@ -439,18 +439,19 @@ void detecting(ros::Rate &rate)
         REACH_ENDPOINT, // 建模后到达端点重新建模
         CYCLE_MODELING, // 循环建模阶段
         PREPARING,      // 准备投弹阶段
+        DROP_BOMB,      // 直接投弹阶段
     } detecting_state = APPROACHING;
 
-    vision_state_msg.data = true; // 开启视觉扫描
+    // 稳定位姿
     hovering(3.0, 2, false, rate);
-    hovering(3.0, 5, false, rate);
-    ROS_INFO("Start detecting for target line...");
+
     // 主循环：每步推进一次状态机
     while (ros::ok())
     {
         rate.sleep();
         ros::spinOnce();
 
+        // 不在移动的时候喂入目标坐标
         if (detecting_state != APPROACHING && detecting_state != REACH_ENDPOINT && target_pose.pose.position.z != -1)
         {
             compute.feed(target_pose);
@@ -460,6 +461,11 @@ void detecting(ros::Rate &rate)
         {
         case APPROACHING:
         {
+            // 视觉扫描
+            vision_state_msg.data = true;
+            hovering(3.0, 5, true, rate);
+            ROS_INFO("Start detecting for target line...");
+            //移动到瞬时目标位置
             if (target_pose.pose.position.z != -1)
             {
                 set_and_pub_pose(target_pose.pose.position.x, target_pose.pose.position.y, 3.0);
@@ -469,13 +475,15 @@ void detecting(ros::Rate &rate)
                     local_pos_pub.publish(pose);
                     rate.sleep();
                 }
+                // 稳定位姿
+                hovering(3.0, 3, false, rate);
+                // 切换到高空学习模式
                 detecting_state = HIGH_LEARNING;
                 swich_time = ros::Time::now();
-                hovering(3.0, 3, true, rate);
             }
             else
             {
-                hovering(3.0, 5, true, rate);
+                hovering(3.5, 5, true, rate);
                 ROS_INFO("No target found, hovering.");
             }
             break;
@@ -483,7 +491,9 @@ void detecting(ros::Rate &rate)
 
         case HIGH_LEARNING:
         {
-
+            // 重置学习缓存
+            compute.reset();
+            // 建立模型
             establishedPoints = compute.endpoints();
             ROS_INFO("establishedPoints: A(%.2f, %.2f), B(%.2f, %.2f), L=%.2f, valid=%d",
                      establishedPoints.A.x(), establishedPoints.A.y(),
@@ -497,6 +507,7 @@ void detecting(ros::Rate &rate)
             ROS_INFO("Switch time is %.2f", ros::Time::now().toSec() - swich_time.toSec());
             if (ros::Time::now() - swich_time > ros::Duration(30.0))
             {
+                // 初次学习之后移动到端点
                 if (!is_second_learning)
                     detecting_state = REACH_ENDPOINT;
                 else
@@ -519,36 +530,13 @@ void detecting(ros::Rate &rate)
                 rate.sleep();
             }
 
-            // 移动位置之后重新建模
-            // compute.reset();
-            // detecting_state = HIGH_LEARNING;
-            swich_time = ros::Time::now();
-
             ROS_INFO("Enter second learning");
-            hovering(0.6, 1.5, false, rate);
+            hovering(1, 1.5, false, rate);
             is_second_learning = true;
 
-            // 直接投弹
-            static bool tank_state = 0;
-            while (ros::ok() && ros::Time::now() - last_request < ros::Duration(30))
-            {
-                ros::spinOnce();
-                local_pos_pub.publish(pose); // 保持悬停
-                rate.sleep();
-                geometry_msgs::PoseStamped tgt_pose = target_pose;
-                tgt_pose.pose.position.z = current_pose.pose.position.z;
-                if (distance(current_pose, tgt_pose.pose.position) >= 0.40)
-                {
-                    tank_state = 1;
-                }
-                if (distance(current_pose, tgt_pose.pose.position) <= 0.20 && tank_state == 1)
-                {
-                    tank_state = 0;
-                    mission_state = BOMBING;
-                    ROS_INFO("Bomb now");
-                    return;
-                }
-            }
+            detecting_state = DROP_BOMB;
+            swich_time = ros::Time::now();
+            break;
         }
 
         case PREPARING:
@@ -601,6 +589,34 @@ void detecting(ros::Rate &rate)
                         ROS_INFO("BOMBING FAILED,the distance is %.2f", distance(current_pose, target_pose.pose.position));
                         ROS_INFO("BOMBING FAILED,the distance is %.2f", distance(current_pose, target_pose.pose.position));
                     }
+                }
+            }
+            break;
+        }
+
+        case DROP_BOMB:
+        {
+            // 直接投弹
+            static bool tank_state = false;
+            while (ros::ok() && ros::Time::now() - last_request < ros::Duration(30))
+            {
+                ros::spinOnce();
+                local_pos_pub.publish(pose); // 保持悬停
+                rate.sleep();
+                // 计算投影距离
+                geometry_msgs::PoseStamped tgt_pose = target_pose;
+                tgt_pose.pose.position.z = current_pose.pose.position.z;
+                // 用于判断小车是否从远处向无人机投影逼近
+                if (distance(current_pose, tgt_pose.pose.position) >= 0.20)
+                {
+                    tank_state = true;
+                    ROS_INFO("TANK_STATE gets into true.");
+                }
+                if (distance(current_pose, tgt_pose.pose.position) <= 0.20 && tank_state == true)
+                {
+                    mission_state = BOMBING;
+                    ROS_INFO("Bomb now");
+                    return;
                 }
             }
             break;

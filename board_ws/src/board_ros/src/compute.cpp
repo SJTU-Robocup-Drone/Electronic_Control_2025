@@ -7,9 +7,6 @@
 #include <cmath>
 
 // ===== 这里声明你工程里的全局 UAV 位姿 =====
-// 若你的工程里已有 `geometry_msgs::PoseStamped current_pose;` 的全局定义，
-// 这里用 extern 引用它即可：不需要再传参。
-extern geometry_msgs::PoseStamped current_pose;
 
 namespace board_ros
 {

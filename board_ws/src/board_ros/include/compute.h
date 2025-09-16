@@ -4,7 +4,7 @@
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/Vector3Stamped.h>
 #include <ros/ros.h>
-
+#include "offboard.h"
 
 namespace board_ros
 {
