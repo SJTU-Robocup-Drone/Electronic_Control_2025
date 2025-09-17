@@ -139,7 +139,7 @@ void overlooking(ros::Rate &rate)
     vision_state_pub.publish(vision_state_msg);
 
     ROS_INFO("Stabilizing first...");
-    hovering(0.9, 2, false, rate);
+    hovering(0.8, 2, false, rate);
     ROS_INFO("Start overlooking for target. Rising to overlooking position...");
 
     // 速度控制较低速上升，防止吹跑已经投放好的弹
@@ -188,7 +188,7 @@ void searching(ros::Rate &rate)
 
     // 发布航点并进入导航状态前先悬停，给建图留时间
     ROS_INFO("Hovering before navigating...");
-    hovering(0.8, 3, false, rate);
+    hovering(0.7, 3, false, rate);
     
     pub_searching_or_retrying_point(retry_point);
 
@@ -302,7 +302,7 @@ void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
 
     // 导航前先悬停，给建图留时间
     ROS_INFO("Hovering before navigating...");
-    hovering(0.8, 5, false, rate);
+    hovering(0.7, 5, false, rate);
 
     // 发布航点，更新导航时间
     if (obstacle_zone_index < obstacle_zone_points.size())
@@ -757,7 +757,7 @@ void check_index(ros::Rate &rate)
         is_done_msg.data = true;
         is_done_pub.publish(is_done_msg);
         last_request = ros::Time::now();
-        hovering(0.9, 2, false, rate);
+        hovering(0.8, 2, false, rate);
         if (target_pose.pose.position.z != -1){
             ROS_INFO("All searching points reached but still have targets. Navigating now.");
             mission_state = BOMB_NAVIGATING;
@@ -968,7 +968,7 @@ void check_left_bombs(ros::Rate &rate)
         command = std::to_string(target_index + 1) + std::to_string(0) + "\n";
         ser.write(command);
         ROS_INFO_STREAM("Sent command to servo" << target_index + 1 << ": " << command);
-        hovering(0.9, 0.5, false, rate);
+        hovering(0.8, 0.5, false, rate);
         target_index++;
     }
 

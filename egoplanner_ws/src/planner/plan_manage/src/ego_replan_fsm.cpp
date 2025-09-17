@@ -195,7 +195,7 @@ namespace ego_planner
     // check whether the target is in obstacle area.
     // if it's trapped in obstacles, it should be moved to a safe area.
     auto grid_map = planner_manager_->grid_map_;
-    int target_in_inflated_zone_ = !isSafe(end_pt_, 2);
+    int target_in_inflated_zone_ = !isSafe(end_pt_, 1);
     ROS_INFO("get isSafe of target = %d", !target_in_inflated_zone_);
     if (target_in_inflated_zone_) {
       ROS_WARN("Target is not safe! Try to adjust the target point.");
@@ -220,7 +220,7 @@ namespace ego_planner
     has_original_target_ = true;
 
     // 检测是否在障碍物膨胀区内
-    is_in_inflated_zone_ = !isSafe(odom_pos_, 2);
+    is_in_inflated_zone_ = !isSafe(odom_pos_, 1);
     ROS_INFO("get isSafe of drone = %d", !is_in_inflated_zone_);
     if (is_in_inflated_zone_) {
       ROS_WARN("Drone is not safe! Starting escape procedure.");
@@ -290,10 +290,9 @@ namespace ego_planner
           grid_map->indexToPos(candidate_idx,candidate_pos);
         
           // 检查是否安全且不在膨胀区内(包括周围四个点)
-          if (isSafe(candidate_pos, 2)) {
+          if (isSafe(candidate_pos, 1)) {
             Eigen::Vector3i escape_idx = current_idx + Eigen::Vector3i(x,y,0);
             grid_map->indexToPos(escape_idx, escape_target);
-            escape_target_(2) = 1.0;
             ROS_INFO_THROTTLE(1.0, "Find escaping target at (%.2f, %.2f, %.2f)", escape_target(0), escape_target(1), escape_target(2));
             return true;
           }
@@ -342,7 +341,7 @@ namespace ego_planner
     constexpr double step = 0.1;
     for(int i = 1; i <= 10; ++i){
       Eigen::Vector3d candidate_pos = target + direction * i * step;
-      bool candidate_in_inflated_zone = !isSafe(candidate_pos, 2);
+      bool candidate_in_inflated_zone = !isSafe(candidate_pos, 1);
       if(!candidate_in_inflated_zone){
         target = candidate_pos;
         ROS_INFO_THROTTLE(1.0, "Find safe target(terminal point) at (%.2f, %.2f, %.2f)", target(0), target(1), target(2));
@@ -373,7 +372,7 @@ namespace ego_planner
     if((exec_state_ == REPLAN_TRAJ || exec_state_ == EXEC_TRAJ) && ++odom_cnt >= 10){
       odom_cnt = 0;
       auto grid_map = planner_manager_->grid_map_;
-      is_in_inflated_zone_ = !isSafe(odom_pos_, 2);
+      is_in_inflated_zone_ = !isSafe(odom_pos_, 1);
       if(is_in_inflated_zone_){
         ROS_WARN_THROTTLE(1.0, "Drone in inflated zone! Switching to ESCAPING.");
         if (findEscapeTarget(escape_target_)) {
@@ -432,6 +431,9 @@ namespace ego_planner
     case INIT:
     {
       if(escape_state_msg_.data == true){
+        start_pt_ = odom_pos_;
+        start_vel_ = odom_vel_;
+        start_acc_.setZero();
         trigger_ = false;
         escape_state_msg_.data = false;
         escape_state_pub_.publish(escape_state_msg_);
@@ -565,8 +567,10 @@ namespace ego_planner
       }
       else
       {
-        if (odom_vel_.norm() < 0.2)
-          changeFSMExecState(GEN_NEW_TRAJ, "FSM"); // 制动成功后切换至生成新轨迹状态
+        // if (odom_vel_.norm() < 0.2)
+        //   changeFSMExecState(GEN_NEW_TRAJ, "FSM"); // 制动成功后切换至生成新轨迹状态
+        findEscapeTarget(escape_target_);
+        changeFSMExecState(ESCAPING, "FSM");
       }
 
       flag_escape_emergency_ = false; // 重置标志位避免重复调用
@@ -578,7 +582,7 @@ namespace ego_planner
       escape_state_pub_.publish(escape_state_msg_);
       // 检查是否离开膨胀区
       auto grid_map = planner_manager_->grid_map_;
-      is_in_inflated_zone_ = !isSafe(odom_pos_, 2);
+      is_in_inflated_zone_ = !isSafe(odom_pos_, 1);
       /*static int out_of_inflated_zone_time = 0;
       constexpr int escaping_threshold = 10;
       if (is_in_inflated_zone_ != 1) { // 已成功逃离膨胀区，正常规划轨迹
@@ -665,6 +669,7 @@ namespace ego_planner
 
   void EGOReplanFSM::checkCollisionCallback(const ros::TimerEvent &e)
   {
+    if(escape_state_msg_.data) return;
     LocalTrajData *info = &planner_manager_->local_data_;
     auto map = planner_manager_->grid_map_;
 

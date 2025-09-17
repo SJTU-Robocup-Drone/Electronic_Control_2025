@@ -186,7 +186,7 @@ void random_target_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
 void process_target_cb()
 {
     // 定时清零receive_cnt
-    if(++clear_receive_cnt >= 100){
+    if(++clear_receive_cnt >= 1000){
         for(int i = 0; i <= 6; i++){
             targetArray[i].receive_cnt = 0;
         }
