@@ -88,7 +88,7 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
         int type = it->second;
 
         // 过滤偶尔的误识别信息
-        if(++targetArray[type].receive_cnt <= 10) return;
+        if(type != 4 && ++targetArray[type].receive_cnt <= 10) return;
 
         geometry_msgs::PoseStamped coord;
         // 查找历史时间戳功能
@@ -190,6 +190,7 @@ void process_target_cb()
         for(int i = 0; i <= 6; i++){
             targetArray[i].receive_cnt = 0;
         }
+        clear_receive_cnt = 0;
     }
 
     is_found = false;
@@ -296,12 +297,12 @@ void receive_target()
     if (current_index == 4)
         is_moving_target = true;
 
-    // 如果调整阶段靶标位置连续两次偏差超过0.5米，则认为视觉误识别（假定OVERLOOKING的识别结果没有问题，因为之前没有出过错）
+    // 如果调整阶段靶标位置连续4次偏差超过0.5米，则认为视觉误识别（假定OVERLOOKING的识别结果没有问题，因为之前没有出过错）
     if (mission_state == ADJUSTING)
     {
         if (distance(target_pose, last_target_point) > 0.5)
         {
-            if (++vision_bias_cnt >= 2)
+            if (++vision_bias_cnt >= 4)
             {
                 vision_bias_cnt = 0;
                 is_vision_right = false;
