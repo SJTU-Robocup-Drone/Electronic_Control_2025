@@ -32,6 +32,9 @@ geometry_msgs::Point target_point;
 double min_dist;
 int candidate_index;
 
+// receive_cnt定时清零计数器
+int clear_receive_cnt = 0;
+
 // 投弹仓相对于飞控的位置偏移补偿
 double offset[3][2] = {{0, 0.16}, {0.16, 0}, {0, -0.16}};
 // 摄像头相对于飞控的位置偏移补偿
@@ -83,6 +86,10 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
     if (it != target_types.end())
     {
         int type = it->second;
+
+        // 过滤偶尔的误识别信息
+        if(++targetArray[type].receive_cnt <= 10) return;
+
         geometry_msgs::PoseStamped coord;
         // 查找历史时间戳功能
         // if (getPoseAt(msg->header.stamp, coord, current_pose_buffer, current_pose_len))
@@ -141,6 +148,10 @@ void random_target_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
 {
     if (targetArray[6].isBombed || !vision_state_msg.data)
         return;        // 如果vision_state为假或已经投过随机靶就不需要更新了
+
+    // 过滤偶尔的误识别信息
+    if(++targetArray[6].receive_cnt <= 10) return;
+
     // 定义相机系
     double rel_x = msg->point.x;
     double rel_y = msg->point.y;
@@ -174,6 +185,13 @@ void random_target_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
 // 定时遍历目标数组并根据其中的数据更新target_pose
 void process_target_cb()
 {
+    // 定时清零receive_cnt
+    if(++clear_receive_cnt >= 100){
+        for(int i = 0; i <= 6; i++){
+            targetArray[i].receive_cnt = 0;
+        }
+    }
+
     is_found = false;
     if (is_returning)
     {
@@ -235,6 +253,7 @@ void process_target_cb()
                     if(distance(current_pose, target_point) < min_dist){
                         is_found = true;
                         candidate_index = i;
+                        if (is_done) break;
                     }   
                 }
             }

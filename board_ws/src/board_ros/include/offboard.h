@@ -142,6 +142,7 @@ struct Target
     bool isValid = false;
     bool isNeedForBomb = true;
     bool isBombed = false;
+    int receive_cnt = 0; // 用来过滤偶尔的误识别信息
 };
 extern Target targetArray[7];
 
