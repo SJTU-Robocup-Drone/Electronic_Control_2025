@@ -88,7 +88,7 @@ void detection_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
         int type = it->second;
 
         // 过滤偶尔的误识别信息
-        if(type != 4 && ++targetArray[type].receive_cnt <= 10) return;
+        if(++targetArray[type].receive_cnt <= 10) return;
 
         geometry_msgs::PoseStamped coord;
         // 查找历史时间戳功能
