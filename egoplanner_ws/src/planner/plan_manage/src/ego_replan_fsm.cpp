@@ -220,7 +220,7 @@ namespace ego_planner
     has_original_target_ = true;
 
     // 检测是否在障碍物膨胀区内
-    is_in_inflated_zone_ = !isSafe(odom_pos_, 1);
+    is_in_inflated_zone_ = !isSafe(odom_pos_, 0);
     ROS_INFO("get isSafe of drone = %d", !is_in_inflated_zone_);
     if (is_in_inflated_zone_) {
       ROS_WARN("Drone is not safe! Starting escape procedure.");
@@ -273,7 +273,7 @@ namespace ego_planner
 
   bool EGOReplanFSM::findEscapeTarget(Eigen::Vector3d& escape_target) {
     auto grid_map = planner_manager_->grid_map_;
-    const int search_radius = 10; // 最大搜索半径（栅格单位）
+    const int search_radius = 5; // 最大搜索半径（栅格单位）
   
     // 获取当前位置栅格坐标
     Eigen::Vector3i current_idx;
@@ -369,19 +369,19 @@ namespace ego_planner
     odom_orient_.z() = msg->pose.pose.orientation.z;
 
     have_odom_ = true;
-    if((exec_state_ == REPLAN_TRAJ || exec_state_ == EXEC_TRAJ) && ++odom_cnt >= 10){
-      odom_cnt = 0;
-      auto grid_map = planner_manager_->grid_map_;
-      is_in_inflated_zone_ = !isSafe(odom_pos_, 1);
-      if(is_in_inflated_zone_){
-        ROS_WARN_THROTTLE(1.0, "Drone in inflated zone! Switching to ESCAPING.");
-        if (findEscapeTarget(escape_target_)) {
-          changeFSMExecState(ESCAPING, "ESCAPE");
-        } else {
-          ROS_ERROR("Failed to find escape target! Attempting original goal.");
-        }
-      }
-    }
+    // if((exec_state_ == REPLAN_TRAJ || exec_state_ == EXEC_TRAJ) && ++odom_cnt >= 10){
+    //   odom_cnt = 0;
+    //   auto grid_map = planner_manager_->grid_map_;
+    //   is_in_inflated_zone_ = !isSafe(odom_pos_, 0);
+    //   if(is_in_inflated_zone_){
+    //     ROS_WARN_THROTTLE(1.0, "Drone in inflated zone! Switching to ESCAPING.");
+    //     if (findEscapeTarget(escape_target_)) {
+    //       changeFSMExecState(ESCAPING, "ESCAPE");
+    //     } else {
+    //       ROS_ERROR("Failed to find escape target! Attempting original goal.");
+    //     }
+    //   }
+    // }
   }
 
   void EGOReplanFSM::changeFSMExecState(FSM_EXEC_STATE new_state, string pos_call) // 状态机状态转换函数；两个参数分别是新状态和调用位置的字符串描述（第二个参数只用于调试输出）
@@ -582,7 +582,7 @@ namespace ego_planner
       escape_state_pub_.publish(escape_state_msg_);
       // 检查是否离开膨胀区
       auto grid_map = planner_manager_->grid_map_;
-      is_in_inflated_zone_ = !isSafe(odom_pos_, 1);
+      is_in_inflated_zone_ = !isSafe(odom_pos_, 0);
       /*static int out_of_inflated_zone_time = 0;
       constexpr int escaping_threshold = 10;
       if (is_in_inflated_zone_ != 1) { // 已成功逃离膨胀区，正常规划轨迹
