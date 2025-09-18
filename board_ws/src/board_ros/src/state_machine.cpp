@@ -885,8 +885,8 @@ void bn_check_arrival()
         retrying_target_index = -1;
         if (is_moving_target)
         {
-            mission_state = FOLLOWING;
-            ROS_INFO("The target is moving, following it.");
+            mission_state = DETECTING;
+            ROS_INFO("The target is moving, detecting it.");
             is_moving_target = false; // 重置标志
         }
         else
