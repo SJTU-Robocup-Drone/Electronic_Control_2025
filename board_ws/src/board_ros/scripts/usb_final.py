@@ -236,7 +236,7 @@ def detect_targets():
                     detection_msg.header.stamp = rospy.Time.now()
                     detection_msg.header.frame_id = names[class_id]
                     if names[class_id] == "red":
-                        cross_center = detect_red_cross(frames)
+                        cross_center = detect_red_cross(color_image)
                         if cross_center is not None:
                             x_new, y_new = cross_center
                             x_new = (x_new - cx) / fx * camera_height
@@ -329,3 +329,4 @@ if __name__ == "__main__":
             detection_thread.join(timeout=1.0)
 
         rospy.loginfo("[INFO] Node shut down safely.")
+

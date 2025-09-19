@@ -205,7 +205,7 @@ void process_target_cb()
             target_pose.header.frame_id = "map";
             target_pose.pose.position.x = targetArray[5].x;
             target_pose.pose.position.y = targetArray[5].y;
-            target_pose.pose.position.z = 0.9;
+            target_pose.pose.position.z = 0.8;
 
             current_index = 5;
         }
@@ -220,7 +220,7 @@ void process_target_cb()
                 target_pose.header.frame_id = "map";
                 target_pose.pose.position.x = targetArray[current_index].x;
                 target_pose.pose.position.y = targetArray[current_index].y;
-                target_pose.pose.position.z = 0.9;
+                target_pose.pose.position.z = 0.8;
                 
         }
     }
@@ -236,8 +236,9 @@ void process_target_cb()
             {
                 target_point.x = targetArray[6].x;
                 target_point.y = targetArray[6].y;
-                target_point.z = 0.9;
+                target_point.z = 0.8;
                 if(distance(current_pose, target_point) < min_dist){
+                    min_dist = distance(current_pose, target_point);
                     is_found = true;
                     candidate_index = 6;
                 }
@@ -248,10 +249,11 @@ void process_target_cb()
             {
                 target_point.x = targetArray[i].x;
                 target_point.y = targetArray[i].y;
-                target_point.z = 0.9;
+                target_point.z = 0.8;
                 // 只有searching结束 才会去考虑后三个低分靶标
                 if ((i != 0 && i != 1 && i != 2) || is_done){
                     if(distance(current_pose, target_point) < min_dist){
+                        min_dist = distance(current_pose, target_point);
                         is_found = true;
                         candidate_index = i;
                         if (is_done) break;
@@ -267,7 +269,7 @@ void process_target_cb()
         target_pose.header.frame_id = "map";
         target_pose.pose.position.x = targetArray[current_index].x;
         target_pose.pose.position.y = targetArray[current_index].y;
-        target_pose.pose.position.z = 0.9;
+        target_pose.pose.position.z = 0.8;
         ROS_INFO_THROTTLE(1.0, "Current target: %d, position:(%.2f, %.2f)", current_index, target_pose.pose.position.x, target_pose.pose.position.y);
     }
     else {

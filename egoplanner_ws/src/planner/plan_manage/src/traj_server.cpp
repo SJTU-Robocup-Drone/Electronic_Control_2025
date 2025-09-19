@@ -254,7 +254,7 @@ void cmdCallback(const ros::TimerEvent &e)
 
     cmd_raw.position.x = cmd.position.x;
     cmd_raw.position.y = cmd.position.y;
-    cmd_raw.position.z = 0.9;
+    cmd_raw.position.z = 0.8;
 
     cmd_raw.velocity.x = cmd.velocity.x;
     cmd_raw.velocity.y = cmd.velocity.y;
