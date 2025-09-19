@@ -885,7 +885,6 @@ void bn_check_arrival()
         {
             mission_state = DETECTING;
             ROS_INFO("The target is moving, detecting it.");
-            is_moving_target = false; // 重置标志
         }
         else
             mission_state = ADJUSTING;
@@ -953,6 +952,8 @@ void vertically_set_vel_to_bomb(float v, float bomb_height, float lowest_height,
             isBombed = true;
             // 标记当前目标为已投掷
             targetArray[current_index].isBombed = true;
+            // 重置移动靶标志
+            if(is_moving_target) is_moving_target = false;
         }
         rate.sleep();
     }
