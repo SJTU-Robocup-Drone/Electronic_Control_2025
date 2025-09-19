@@ -455,6 +455,7 @@ void detecting(ros::Rate &rate)
         if (detecting_state != APPROACHING && detecting_state != REACH_ENDPOINT && target_pose.pose.position.z != -1)
         {
             compute.feed(target_pose);
+            target_pub.publish(target_pose);
         }
 
         switch (detecting_state)
@@ -491,8 +492,6 @@ void detecting(ros::Rate &rate)
 
         case HIGH_LEARNING:
         {
-            // 重置学习缓存
-            compute.reset();
             // 建立模型
             establishedPoints = compute.endpoints();
             ROS_INFO("establishedPoints: A(%.2f, %.2f), B(%.2f, %.2f), L=%.2f, valid=%d",
@@ -502,7 +501,6 @@ void detecting(ros::Rate &rate)
 
             // 发布生成的直线模型
             board_ros::track::publish_endpoints(establishedPoints, target_pose);
-            target_pub.publish(target_pose);
 
             ROS_INFO("Switch time is %.2f", ros::Time::now().toSec() - swich_time.toSec());
             if (ros::Time::now() - swich_time > ros::Duration(30.0))
@@ -607,12 +605,12 @@ void detecting(ros::Rate &rate)
                 geometry_msgs::PoseStamped tgt_pose = target_pose;
                 tgt_pose.pose.position.z = current_pose.pose.position.z;
                 // 用于判断小车是否从远处向无人机投影逼近
-                if (distance(current_pose, tgt_pose.pose.position) >= 0.20)
+                if (distance(current_pose, tgt_pose.pose.position) >= 0.30)
                 {
                     tank_state = true;
                     ROS_INFO("TANK_STATE gets into true.");
                 }
-                if (distance(current_pose, tgt_pose.pose.position) <= 0.20 && tank_state == true)
+                if (distance(current_pose, tgt_pose.pose.position) <= 0.30 && tank_state == true)
                 {
                     mission_state = BOMBING;
                     ROS_INFO("Bomb now");
