@@ -12,6 +12,9 @@ struct TimedPose
 std::deque<TimedPose> history_;
 const size_t MAX_HISTORY = 10; // 缓冲 10 帧
 
+// 保存旧速度方法
+geometry_msgs::Vector3 v_old;
+
 // 当前位置缓存
 static std::deque<geometry_msgs::PoseStamped> current_pose_buffer;
 static ros::Duration current_pose_len(1.0); // 默认保留 1 秒
@@ -362,23 +365,44 @@ void visionCallback(const geometry_msgs::PoseStamped &msg) // 储存五个视觉
         history_.pop_front();
 }
 
+
 geometry_msgs::Vector3 computeAverageVelocity()
 {
+    geometry_msgs::Vector3 v_new{};
     geometry_msgs::Vector3 v{};
     if (history_.size() < 2)
         return v;
 
-    geometry_msgs::Vector3 d{};
-    d.x = history_.back().pos.x - history_.front().pos.x;
-    d.y = history_.back().pos.y - history_.front().pos.y;
-    d.z = history_.back().pos.z - history_.front().pos.z;
 
-    double dt_total = std::max(1e-3, (history_.back().stamp - history_.front().stamp).toSec());
-    v.x = d.x / dt_total;
-    v.y = d.y / dt_total;
-    v.z = d.z / dt_total;
+
+    geometry_msgs::Vector3 d{};
+    size_t size = history_.size();
+    d.x = history_.back().pos.x - history_[size-2].pos.x;
+    d.y = history_.back().pos.y - history_[size-2].pos.y;
+    d.z = history_.back().pos.z - history_[size-2].pos.z;
+
+
+
+    double dt_total = std::max(1e-3, (history_.back().stamp - history_[size-2].stamp).toSec());
+    v_new.x = d.x / dt_total;
+    v_new.y = d.y / dt_total;
+    v_new.z = d.z / dt_total;
+
+
+    static bool first = true;
+    if (first) {
+        v_old = v_new; // 冷启动：第一次直接采纳
+        first = false;
+        return v_old;
+    }
+
+    v.x = v_old.x *0.7+ v_new.x *0.3;
+    v.y = v_old.y *0.7+ v_new.y *0.3;
+    v.z = v_old.z *0.7+ v_new.z *0.3;
+    v_old = v;
     return v;
 }
+
 
 geometry_msgs::Point predictNextPosition(double predict_dt)
 {
