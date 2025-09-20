@@ -602,6 +602,10 @@ void detecting(ros::Rate &rate)
                 ros::spinOnce();
                 local_pos_pub.publish(pose); // 保持悬停
                 rate.sleep();
+
+                visionCallback(target_pose);
+                geometry_msgs::Vector3 v = computeAverageVelocity();
+                ROS_INFO_THROTTLE(0.2, "Speed is %2f", sqrt(v.x * v.x + v.y * v.y));
                 // 计算投影距离
                 geometry_msgs::PoseStamped tgt_pose = target_pose;
                 tgt_pose.pose.position.z = current_pose.pose.position.z;
@@ -611,7 +615,7 @@ void detecting(ros::Rate &rate)
                     tank_state = true;
                     ROS_INFO("TANK_STATE gets into true.");
                 }
-                if (distance(current_pose, tgt_pose.pose.position) <= 0.30 && tank_state == true)
+                if (distance(current_pose, tgt_pose.pose.position) / sqrt(v.x*v.x+v.y*v.y) <= 0.10 && tank_state == true)
                 {
                     follow_bombing(rate, 1);
                     ROS_INFO("Bomb now");
