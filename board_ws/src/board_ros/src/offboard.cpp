@@ -105,7 +105,7 @@ int main(int argc, char **argv)
         }
         case DETECTING:
         {
-            detecting(rate);
+            detecting(high_rate);
             break;
         }
         }

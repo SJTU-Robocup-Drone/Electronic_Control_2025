@@ -95,6 +95,7 @@ void return_init();
 void return_check_stuck(ros::Rate &rate);
 void return_check_arrival();
 void horizontally_set_pose_to_move(double x, double y, ros::Rate &rate);
+void follow_bombing(ros::Rate &rate, float kp);
 
 void takeoff(ros::Rate &rate)
 {
@@ -428,7 +429,7 @@ void detecting(ros::Rate &rate)
 {
     static board_ros::track::TrackerDropper compute;
     board_ros::track::Endpoints establishedPoints;
-    ros::Time swich_time = ros::Time::now();
+    ros::Time switch_time = ros::Time::now();
     static bool edge = false; // 边沿触发标志
     static bool is_second_learning = false;
 
@@ -480,7 +481,7 @@ void detecting(ros::Rate &rate)
                 hovering(3.0, 3, false, rate);
                 // 切换到高空学习模式
                 detecting_state = HIGH_LEARNING;
-                swich_time = ros::Time::now();
+                switch_time = ros::Time::now();
             }
             else
             {
@@ -502,8 +503,8 @@ void detecting(ros::Rate &rate)
             // 发布生成的直线模型
             board_ros::track::publish_endpoints(establishedPoints, target_pose);
 
-            ROS_INFO("Switch time is %.2f", ros::Time::now().toSec() - swich_time.toSec());
-            if (ros::Time::now() - swich_time > ros::Duration(30.0))
+            ROS_INFO("Switch time is %.2f", ros::Time::now().toSec() - switch_time.toSec());
+            if (ros::Time::now() - switch_time > ros::Duration(30.0))
             {
                 // 初次学习之后移动到端点
                 if (!is_second_learning)
@@ -512,7 +513,7 @@ void detecting(ros::Rate &rate)
                 {
                     detecting_state = PREPARING;
                 }
-                swich_time = ros::Time::now();
+                switch_time = ros::Time::now();
             }
             break;
         }
@@ -533,7 +534,7 @@ void detecting(ros::Rate &rate)
             is_second_learning = true;
 
             detecting_state = DROP_BOMB;
-            swich_time = ros::Time::now();
+            switch_time = ros::Time::now();
             break;
         }
 
@@ -559,7 +560,7 @@ void detecting(ros::Rate &rate)
             }
 
             // 等待循环建模稳定进入投弹预测
-            if (ros::Time::now() - swich_time > ros::Duration(5.0))
+            if (ros::Time::now() - switch_time > ros::Duration(5.0))
             {
                 std::pair<ros::Time, ros::Time> window_out;
                 compute.computeReleaseWindow(establishedPoints.A, ros::Time::now(), window_out, &window_centre);
@@ -596,7 +597,7 @@ void detecting(ros::Rate &rate)
         {
             // 直接投弹
             static bool tank_state = false;
-            while (ros::ok() && ros::Time::now() - last_request < ros::Duration(30))
+            while (ros::ok() && ros::Time::now() - switch_time < ros::Duration(30))
             {
                 ros::spinOnce();
                 local_pos_pub.publish(pose); // 保持悬停
@@ -605,14 +606,14 @@ void detecting(ros::Rate &rate)
                 geometry_msgs::PoseStamped tgt_pose = target_pose;
                 tgt_pose.pose.position.z = current_pose.pose.position.z;
                 // 用于判断小车是否从远处向无人机投影逼近
-                if (distance(current_pose, tgt_pose.pose.position) >= 0.30)
+                if (distance(current_pose, tgt_pose.pose.position) >= 0.40)
                 {
                     tank_state = true;
                     ROS_INFO("TANK_STATE gets into true.");
                 }
                 if (distance(current_pose, tgt_pose.pose.position) <= 0.30 && tank_state == true)
                 {
-                    mission_state = BOMBING;
+                    follow_bombing(rate,0.1);
                     ROS_INFO("Bomb now");
                     return;
                 }
@@ -1086,4 +1087,47 @@ void horizontally_set_pose_to_move(double x, double y, ros::Rate &rate)
         local_pos_pub.publish(pose);
         rate.sleep();
     }
+}
+
+// 开视觉的投弹
+void follow_bombing(ros::Rate &rate, float kp)
+{
+    // 边下降边投弹
+    ROS_INFO("Start follow_bombing...");
+    vel.linear.x = kp * target_pose.pose.position.x - current_pose.pose.position.x;
+    vel.linear.y = kp * target_pose.pose.position.y - current_pose.pose.position.y;
+    vel.linear.z = -0.2;
+    bool isBombed = false;
+    while (ros::ok() && current_pose.pose.position.z >= 0.4)
+    {
+        ros::spinOnce();
+        local_vel_pub.publish(vel);
+        if (current_pose.pose.position.z <= 0.5 && !isBombed)
+        {
+            ROS_INFO("Releasing bomb %d...", target_index + 1);
+            command = std::to_string(target_index + 1) + std::to_string(0) + "\n";
+            ser.write(command);
+            ROS_INFO_STREAM("Sent command to servo" << target_index + 1 << ": " << command);
+            isBombed = true;
+            // 标记当前目标为已投掷
+            targetArray[current_index].isBombed = true;
+        }
+        rate.sleep();
+    }
+
+    // 到点后悬停0.5秒,然后索引自增
+    hovering(0.4, 0.5, false, rate);
+    target_pose.pose.position.z = -1; // 防止视觉节点没有来得及发布新目标点或发布未找到目标点的消息导致重复导航和投弹
+
+    // 速度控制较低速上升，防止吹跑已经投放好的弹
+    ROS_INFO("Bombing %d done, rising to normal flight height.", target_index + 1);
+
+    vertically_set_vel_to_move(0.2, 0.9, rate);
+
+    if (++target_index >= 3)
+        mission_state = OBSTACLE_AVOIDING;
+    else if (target_pose.pose.position.z != -1)
+        mission_state = BOMB_NAVIGATING;
+    else
+        mission_state = SEARCHING;
 }
