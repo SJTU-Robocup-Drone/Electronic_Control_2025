@@ -613,7 +613,7 @@ void detecting(ros::Rate &rate)
                 }
                 if (distance(current_pose, tgt_pose.pose.position) <= 0.30 && tank_state == true)
                 {
-                    follow_bombing(rate,0.1);
+                    follow_bombing(rate, 1);
                     ROS_INFO("Bomb now");
                     return;
                 }
@@ -1095,13 +1095,13 @@ void follow_bombing(ros::Rate &rate, float kp)
 {
     // 边下降边投弹
     ROS_INFO("Start follow_bombing...");
-    vel.linear.x = kp * target_pose.pose.position.x - current_pose.pose.position.x;
-    vel.linear.y = kp * target_pose.pose.position.y - current_pose.pose.position.y;
-    vel.linear.z = -0.2;
+    vel.linear.z = -2.0;
     bool isBombed = false;
     while (ros::ok() && current_pose.pose.position.z >= 0.4)
     {
         ros::spinOnce();
+        vel.linear.x = kp * target_pose.pose.position.x - current_pose.pose.position.x;
+        vel.linear.y = kp * target_pose.pose.position.y - current_pose.pose.position.y;
         local_vel_pub.publish(vel);
         if (current_pose.pose.position.z <= 0.5 && !isBombed)
         {
