@@ -207,7 +207,7 @@ void process_target_cb()
             target_pose.pose.position.y = targetArray[5].y;
             target_pose.pose.position.z = 0.8;
 
-            current_index = 5;
+            candidate_index = 5;
         }
     }
     else if(is_retrying_bombing_point){
@@ -217,10 +217,11 @@ void process_target_cb()
         {
             is_found = true;
 
-                target_pose.header.frame_id = "map";
-                target_pose.pose.position.x = targetArray[current_index].x;
-                target_pose.pose.position.y = targetArray[current_index].y;
-                target_pose.pose.position.z = 0.8;
+            target_pose.header.frame_id = "map";
+            target_pose.pose.position.x = targetArray[current_index].x;
+            target_pose.pose.position.y = targetArray[current_index].y;
+            target_pose.pose.position.z = 0.8;
+            candidate_index = current_index;
                 
         }
     }

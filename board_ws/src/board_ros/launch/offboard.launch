@@ -43,9 +43,9 @@
     <param name="obstacle_zone_point_2_z" type="double" value="0.8" />
 
     <!-- 障碍区域点3坐标 -->
-    <param name="obstacle_zone_point_2_x" type="double" value="10.4" />
-    <param name="obstacle_zone_point_2_y" type="double" value="3.2" />
-    <param name="obstacle_zone_point_2_z" type="double" value="0.8" />
+    <param name="obstacle_zone_point_3_x" type="double" value="10.4" />
+    <param name="obstacle_zone_point_3_y" type="double" value="3.2" />
+    <param name="obstacle_zone_point_3_z" type="double" value="0.8" />
 
     <!-- 靶标开关，选择是否投弹 -->
     <!-- 依次对应 tent / bunker / bridge / car / tank / Helicopter / red-->
