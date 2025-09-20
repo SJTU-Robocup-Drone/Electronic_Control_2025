@@ -189,7 +189,7 @@ void searching(ros::Rate &rate)
 
     // 发布航点并进入导航状态前先悬停，给建图留时间
     ROS_INFO("Hovering before navigating...");
-    hovering(0.7, 3, false, rate);
+    hovering(0.8, 3, false, rate);
     
     pub_searching_or_retrying_point(retry_point);
 
@@ -303,7 +303,7 @@ void obstacle_avoiding(ros::NodeHandle &nh, ros::Rate &rate)
 
     // 导航前先悬停，给建图留时间
     ROS_INFO("Hovering before navigating...");
-    hovering(0.7, 5, false, rate);
+    hovering(0.8, 5, false, rate);
 
     // 发布航点，更新导航时间
     if (obstacle_zone_index < obstacle_zone_points.size())

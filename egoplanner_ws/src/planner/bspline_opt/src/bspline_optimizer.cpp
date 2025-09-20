@@ -27,6 +27,11 @@ namespace ego_planner
   void BsplineOptimizer::setControlPoints(const Eigen::MatrixXd &points)
   {
     cps_.points = points;
+    // [2D-QUICK] 拍扁到同一高度：用首个控制点的 z 作为隐式平面高度
+    // 不新增成员变量，每次从当前矩阵读取
+    if (cps_.points.cols() > 0) {
+      cps_.points.row(2).setConstant(cps_.points(2, 0));
+    }
   }
 
   void BsplineOptimizer::setBsplineInterval(const double &ts) { bspline_interval_ = ts; }
@@ -42,6 +47,11 @@ namespace ego_planner
       cps_.clearance = dist0_;
       cps_.resize(init_points.cols());
       cps_.points = init_points;
+      // [2D-QUICK] 拍扁到同一高度：用首个控制点的 z 作为隐式平面高度
+      // 不新增成员变量，每次从当前矩阵读取
+      if (cps_.points.cols() > 0) {
+        cps_.points.row(2).setConstant(cps_.points(2, 0));
+      }
     }
 
     /*** Segment the initial trajectory according to obstacles ***/
@@ -103,9 +113,15 @@ namespace ego_planner
     vector<vector<Eigen::Vector3d>> a_star_pathes;
     for (size_t i = 0; i < segment_ids.size(); ++i)
     {
+      // [2D-QUICK] 传给 A* 的起终点强制到同一平面
+      if (cps_.points.cols() > 0) {
+        const double zc = cps_.points(2, 0);
+        // in.z()  = zc;
+        // out.z() = zc;
+      }
       //cout << "in=" << in.transpose() << " out=" << out.transpose() << endl;
       Eigen::Vector3d in(init_points.col(segment_ids[i].first)), out(init_points.col(segment_ids[i].second));
-      if (a_star_->AstarSearch(/*(in-out).norm()/10+0.05*/ 0.1, in, out))
+      if (a_star_->AstarSearch(/*(in-out).norm()/10+0.05*/ 0.05, in, out))
       {
         a_star_pathes.push_back(a_star_->getPath());
       }
@@ -226,16 +242,35 @@ namespace ego_planner
           double length = (intersection_point - cps_.points.col(j)).norm();
           if (length > 1e-5)
           {
+            // [2D-QUICK] 交点压回平面
+            if (cps_.points.cols() > 0) {
+              intersection_point.z() = cps_.points(2, j);
+            }
+
             for (double a = length; a >= 0.0; a -= grid_map_->getResolution())
             {
-              occ = grid_map_->getInflateOccupancy((a / length) * intersection_point + (1 - a / length) * cps_.points.col(j));
+              // 2D代码注释掉的原本的代码
+              // occ = grid_map_->getInflateOccupancy((a / length) * intersection_point + (1 - a / length) * cps_.points.col(j));
+              // [2D-QUICK] 采样点也在平面：组合后再改 z
+              Eigen::Vector3d samp = (a / length) * intersection_point + (1 - a / length) * cps_.points.col(j);
+              if (cps_.points.cols() > 0) samp.z() = cps_.points(2, j);
+              bool occ = grid_map_->getInflateOccupancy(samp);
 
               if (occ || a < grid_map_->getResolution())
               {
                 if (occ)
                   a += grid_map_->getResolution();
-                cps_.base_point[j].push_back((a / length) * intersection_point + (1 - a / length) * cps_.points.col(j));
-                cps_.direction[j].push_back((intersection_point - cps_.points.col(j)).normalized());
+                // 2D代码注释掉的原本的代码
+                // cps_.base_point[j].push_back((a / length) * intersection_point + (1 - a / length) * cps_.points.col(j));
+                // cps_.direction[j].push_back((intersection_point - cps_.points.col(j)).normalized());
+                // [2D-QUICK] 回填基准点在平面
+                Eigen::Vector3d bp = (a / length) * intersection_point + (1 - a / length) * cps_.points.col(j);
+                if (cps_.points.cols() > 0) bp.z() = cps_.points(2, j);
+                cps_.base_point[j].push_back(bp);
+                // [2D-QUICK] 方向只在平面（z=0）
+                Eigen::Vector3d dir = (intersection_point - cps_.points.col(j)).normalized();
+                dir.z() = 0.0;
+                cps_.direction[j].push_back(dir);
                 break;
               }
             }
@@ -269,11 +304,25 @@ namespace ego_planner
                  (ctrl_pts_law.dot(middle_point - a_star_pathes[i][Astar_id]) / ctrl_pts_law.dot(a_star_pathes[i][Astar_id] - a_star_pathes[i][last_Astar_id])) // = t
                 );
 
+            // if ((intersection_point - middle_point).norm() > 0.01) // 1cm.
+            // [2D-QUICK] 交点与中点压回平面
+            if (cps_.points.cols() > 0) {
+              intersection_point.z() = cps_.points(2, segment_ids[i].first);
+              middle_point.z()       = cps_.points(2, segment_ids[i].first);
+            }
             if ((intersection_point - middle_point).norm() > 0.01) // 1cm.
             {
               cps_.flag_temp[segment_ids[i].first] = true;
-              cps_.base_point[segment_ids[i].first].push_back(cps_.points.col(segment_ids[i].first));
-              cps_.direction[segment_ids[i].first].push_back((intersection_point - middle_point).normalized());
+              // 2D代码注释掉的原本的代码
+              // cps_.base_point[segment_ids[i].first].push_back(cps_.points.col(segment_ids[i].first));
+              // cps_.direction[segment_ids[i].first].push_back((intersection_point - middle_point).normalized());
+              // [2D-QUICK] 基准点与方向压平/置零 z
+              Eigen::Vector3d bp = cps_.points.col(segment_ids[i].first);
+              if (cps_.points.cols() > 0) bp.z() = cps_.points(2, segment_ids[i].first);
+              cps_.base_point[segment_ids[i].first].push_back(bp);
+              Eigen::Vector3d dir = (intersection_point - middle_point).normalized();
+              dir.z() = 0.0;
+              cps_.direction[segment_ids[i].first].push_back(dir);
 
               got_intersection_id = segment_ids[i].first;
             }
@@ -735,7 +784,13 @@ namespace ego_planner
       {
         /*** a star search ***/
         Eigen::Vector3d in(cps_.points.col(segment_ids[i].first)), out(cps_.points.col(segment_ids[i].second));
-        if (a_star_->AstarSearch(/*(in-out).norm()/10+0.05*/ 0.1, in, out))
+        // [2D-QUICK] 传给 A* 的起终点强制到平面
+        if (cps_.points.cols() > 0) {
+          const double zc = cps_.points(2, segment_ids[i].first);
+          in.z()  = zc;
+          out.z() = zc;
+        }
+        if (a_star_->AstarSearch(/*(in-out).norm()/10+0.05*/ 0.05, in, out))
         {
           a_star_pathes.push_back(a_star_->getPath());
         }
@@ -781,7 +836,8 @@ namespace ego_planner
                   ((a_star_pathes[i][Astar_id] - a_star_pathes[i][last_Astar_id]) *
                    (ctrl_pts_law.dot(cps_.points.col(j) - a_star_pathes[i][Astar_id]) / ctrl_pts_law.dot(a_star_pathes[i][Astar_id] - a_star_pathes[i][last_Astar_id])) // = t
                   );
-
+              // [2D-QUICK] 交点压回平面
+              if (cps_.points.cols() > 0) intersection_point.z() = cps_.points(2, j);
               got_intersection_id = j;
               break;
             }
@@ -795,14 +851,27 @@ namespace ego_planner
             {
               for (double a = length; a >= 0.0; a -= grid_map_->getResolution())
               {
-                bool occ = grid_map_->getInflateOccupancy((a / length) * intersection_point + (1 - a / length) * cps_.points.col(j));
+                // 2D代码注释掉的原本的代码
+                // bool occ = grid_map_->getInflateOccupancy((a / length) * intersection_point + (1 - a / length) * cps_.points.col(j));
+                // [2D-QUICK] 采样点在平面
+                Eigen::Vector3d samp = (a / length) * intersection_point + (1 - a / length) * cps_.points.col(j);
+                if (cps_.points.cols() > 0) samp.z() = cps_.points(2, j);
+                bool occ = grid_map_->getInflateOccupancy(samp);
 
                 if (occ || a < grid_map_->getResolution())
                 {
                   if (occ)
                     a += grid_map_->getResolution();
-                  cps_.base_point[j].push_back((a / length) * intersection_point + (1 - a / length) * cps_.points.col(j));
-                  cps_.direction[j].push_back((intersection_point - cps_.points.col(j)).normalized());
+                  // 2D代码注释掉的原本的代码
+                  // cps_.base_point[j].push_back((a / length) * intersection_point + (1 - a / length) * cps_.points.col(j));
+                  // cps_.direction[j].push_back((intersection_point - cps_.points.col(j)).normalized());
+                  // [2D-QUICK] 基准点/方向压平
+                  Eigen::Vector3d bp = (a / length) * intersection_point + (1 - a / length) * cps_.points.col(j);
+                  if (cps_.points.cols() > 0) bp.z() = cps_.points(2, j);
+                  cps_.base_point[j].push_back(bp);
+                  Eigen::Vector3d dir = (intersection_point - cps_.points.col(j)).normalized();
+                  dir.z() = 0.0;
+                  cps_.direction[j].push_back(dir);
                   break;
                 }
               }
@@ -1048,6 +1117,11 @@ namespace ego_planner
   {
 
     memcpy(cps_.points.data() + 3 * order_, x, n * sizeof(x[0]));
+    // [2D-QUICK] 评估前再次拍扁，保证优化变量不会把 z 拉离平面
+    if (cps_.points.cols() > 0) {
+      cps_.points.row(2).setConstant(cps_.points(2, 0));
+    }
+
 
     /* ---------- evaluate cost and gradient ---------- */
     double f_smoothness, f_distance, f_feasibility;
@@ -1064,6 +1138,8 @@ namespace ego_planner
     //printf("origin %f %f %f %f\n", f_smoothness, f_distance, f_feasibility, f_combine);
 
     Eigen::MatrixXd grad_3D = lambda1_ * g_smoothness + new_lambda2_ * g_distance + lambda3_ * g_feasibility;
+    // [2D-QUICK] 不在 z 方向更新
+    if (grad_3D.rows() >= 3) grad_3D.row(2).setZero();
     memcpy(grad, grad_3D.data() + 3 * order_, n * sizeof(grad[0]));
   }
 
@@ -1071,6 +1147,11 @@ namespace ego_planner
   {
 
     memcpy(cps_.points.data() + 3 * order_, x, n * sizeof(x[0]));
+    // [2D-QUICK] 评估前拍扁
+    if (cps_.points.cols() > 0) {
+      cps_.points.row(2).setConstant(cps_.points(2, 0));
+    }
+
 
     /* ---------- evaluate cost and gradient ---------- */
     double f_smoothness, f_fitness, f_feasibility;
@@ -1090,6 +1171,8 @@ namespace ego_planner
     // printf("origin %f %f %f %f\n", f_smoothness, f_fitness, f_feasibility, f_combine);
 
     Eigen::MatrixXd grad_3D = lambda1_ * g_smoothness + lambda4_ * g_fitness + lambda3_ * g_feasibility;
+    // [2D-QUICK] 不在 z 方向更新
+    if (grad_3D.rows() >= 3) grad_3D.row(2).setZero();
     memcpy(grad, grad_3D.data() + 3 * order_, n * sizeof(grad[0]));
   }
 
