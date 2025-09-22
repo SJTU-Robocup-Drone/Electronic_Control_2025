@@ -37,13 +37,17 @@ double AStar::getDiagHeu(GridNodePtr node1, GridNodePtr node2)
 {
     double dx = abs(node1->index(0) - node2->index(0));
     double dy = abs(node1->index(1) - node2->index(1));
-    double dz = abs(node1->index(2) - node2->index(2));
+    // 2D代码注释掉的原本的代码
+    // double dz = abs(node1->index(2) - node2->index(2));
+    // 2D代码
+    double dz = 0.0;
 
     double h = 0.0;
     int diag = min(min(dx, dy), dz);
     dx -= diag;
     dy -= diag;
-    dz -= diag;
+    // 2D代码注释掉的原本的代码
+    // dz -= diag;
 
     if (dx == 0)
     {
@@ -64,14 +68,22 @@ double AStar::getManhHeu(GridNodePtr node1, GridNodePtr node2)
 {
     double dx = abs(node1->index(0) - node2->index(0));
     double dy = abs(node1->index(1) - node2->index(1));
-    double dz = abs(node1->index(2) - node2->index(2));
+    // 2D代码注释掉的原本的代码
+    // double dz = abs(node1->index(2) - node2->index(2));
+    // 2D代码
+    double dz = 0.0;
 
     return dx + dy + dz;
 }
 
 double AStar::getEuclHeu(GridNodePtr node1, GridNodePtr node2)
 {
-    return (node2->index - node1->index).norm();
+    // 2D代码
+    Eigen::Vector3i t = node2->index - node1->index;
+    t(2) = 0;
+    return t.norm();
+    // 2D代码注释掉的原本的代码
+    // return (node2->index - node1->index).norm();
 }
 
 vector<GridNodePtr> AStar::retrievePath(GridNodePtr current)
@@ -181,8 +193,11 @@ bool AStar::AstarSearch(const double step_size, Vector3d start_pt, Vector3d end_
 
         for (int dx = -1; dx <= 1; dx++)
             for (int dy = -1; dy <= 1; dy++)
-                for (int dz = -1; dz <= 1; dz++)
+                // 2D代码注释掉的原本的代码
+                // for (int dz = -1; dz <= 1; dz++)
                 {
+                    // 2D代码
+                    int dz = 0;
                     if (dx == 0 && dy == 0 && dz == 0)
                         continue;
 
