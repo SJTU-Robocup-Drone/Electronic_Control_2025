@@ -179,7 +179,7 @@ void random_target_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
     targetArray[6].x = global_x;
     targetArray[6].y = global_y;
     targetArray[6].isValid = true;
-    ROS_INFO("Received random target at (%.2f, %.2f)", global_x, global_y);
+    ROS_INFO_THROTTLE(1,"Received random target at (%.2f, %.2f)", global_x, global_y);
     // ADJUSTING阶段刷新标志位
     if (mission_state == ADJUSTING)
         adjust_has_target = true;

@@ -5,10 +5,14 @@
 #include <geometry_msgs/Vector3Stamped.h>
 #include <ros/ros.h>
 #include "offboard.h"
+#include <deque>
+#include <vector>
+#include <random>
+#include <algorithm>
+#include <limits>
+#include <cmath>
 
-namespace board_ros
-{
-    namespace track
+namespace track
     {
 
         // ===== 直线端点与方向 =====
@@ -32,93 +36,71 @@ namespace board_ros
             bool verbose_log = false;        // 调试日志
         };
 
-        // ===== 循环往返节拍参数 =====
-        struct CycleParams
+        struct Line2D
         {
-            double alpha = 0.6;           // α-β滤波：位置增益 α
-            double beta = 0.2;            // α-β滤波：速度增益 β
-            double endpoint_tol_s = 0.08; // 端点邻域（投影坐标阈）
-            double low_speed_th = 0.03;   // 掉头时“低速”阈（m/s）
-            double min_turn_time = 0.10;  // 驻留最小时间（s）
-            double event_cooldown = 0.25; // 事件冷却时间（s）
-            int max_history = 20;         // 统计窗口长度
-            bool verbose_log = false;
+            Eigen::Vector2d p0{0, 0};
+            Eigen::Vector2d u{1, 0}; // 单位方向
         };
 
-        // ===== 投弹/延迟参数 =====
-        struct DropParams
-        {
-            double T_drop{0.50};      // 释放→落地时间（s）
-            double sys_delay{0.08};   // 控制/通信/机械等系统延迟（s）
-            double base_jitter{0.02}; // 额外时间不确定性（s）
-            double window_k{2.0};     // 时窗半宽 = k * σ
-        };
+        // 通用 RANSAC + PCA 拟合二维直线
+        bool ransacLinePCA(const std::vector<Eigen::Vector2d> &pts,
+                           int iters,
+                           double inlier_thresh,
+                           double trim_ratio,
+                           Line2D &best_line,
+                           std::vector<int> *inlier_idx = nullptr,
+                           std::mt19937 *rng_ext = nullptr);
 
-        // ===== 不确定性（统计标准差）=====
-        struct Uncertainty
-        {
-            double sigma_v_A2B{0.01};  // A→B 速度不确定性（m/s）
-            double sigma_v_B2A{0.01};  // B→A 速度不确定性（m/s）
-            double sigma_turn_A{0.05}; // A 端掉头驻留不确定性（s）
-            double sigma_turn_B{0.05}; // B 端掉头驻留不确定性（s）
-        };
+        // 根据直线方向求斜率 dy/dx
+        bool lineSlope_dy_dx(const Line2D &L, double &slope);
 
-        // ===== 直解（Direct Release）参数 =====
-        // 用于“不建节拍器、直接用瞬时速度”解算释放时机
-        struct DirectParams
+        // ==================== Learner ====================
+        // 目标运动建模器（直线 + 速度估计）
+        struct Learner
         {
-            double v_alpha{0.25};       // 速度指数平滑系数（0~1，越大越敏感）
-            double trigger_radius{1.0}; // 触发半径（m），<=0 则不启用距离触发
-            double max_horizon{5.0};    // 允许的最大提前量（s），太远的时刻作废
-        };
+            // 变量枚举（用于生成二维对）
+            enum class Var
+            {
+                T,
+                X,
+                Y
+            };
 
-        // ===== 总配置 =====
-        struct Config
-        {
-            LearnParams learn;
-            CycleParams cycle;
-            DropParams drop;
-            Uncertainty unc;
-            DirectParams direct; // 新增
-        };
-
-        // ===== 主类 =====
-        class TrackerDropper
-        {
-        public:
-            explicit TrackerDropper(const Config &cfg = Config());
+            // 构造与复位
+            Learner();
             void reset();
 
-            // 投喂一帧观测（目标 PoseStamped）
+            // 喂入一帧观测
             void feed(const geometry_msgs::PoseStamped &ps);
 
-            // 学习好的轨迹信息
-            bool hasModel() const;
-            Endpoints endpoints() const;
+            // 用 RANSAC 对 x–y 平面建模，得到端点/方向
+            bool compute();
 
-            // 节拍器：预测下次经过 A/B 的时间
-            bool predictPassTimes(ros::Time now, ros::Time &tA, ros::Time &tB) const;
+            // 从缓存点生成 (a,b) 对，例如 (T,X)、(T,Y)、(X,Y)
+            bool buildPairs(std::vector<Eigen::Vector2d> &out, Var a, Var b) const;
 
-            // 投弹时机（节拍模型）：给定端点坐标，返回一个可投弹的时间区间
-            bool computeReleaseWindow(const Eigen::Vector2d &endpoint_pos,
-                                      ros::Time now,
-                                      std::pair<ros::Time, ros::Time> &out,
-                                      ros::Time *center = nullptr) const;
+            // 用 RANSAC 分别拟合 x(t)、y(t)，返回斜率（速度分量）
+            bool fitLinearVelocityRANSAC(double &vx_slope,
+                                         double &vy_slope,
+                                         double thr_tx,
+                                         double thr_ty,
+                                         int iters = 200,
+                                         double trim_ratio = 0.2);
 
-            // 直解释放：当目标经过 UAV 正下方时投（内部取 current_pose）
-            // 成功返回 t_release；可选返回命中误差估计（地面平面距离）
-            bool solveDirectRelease(const ros::Time &now,
-                                    ros::Time &t_release,
-                                    double *miss_dist = nullptr) const;
-
-            // 配置
-            const Config &config() const;
-            void setConfig(const Config &cfg);
+            // 成员
+            LearnParams prm; // 参数
+            Endpoints ep;    // 建模结果
 
         private:
-            struct Impl;
-            Impl *impl_{nullptr};
+            struct Obs
+            {
+                ros::Time t;
+                Eigen::Vector2d p;
+            };
+            std::deque<Obs> buf;
+            std::mt19937 rng{0xC0FFEE};
         };
+
 
         // 发布端点及方向
         inline void publish_endpoints(const Endpoints &ep,
@@ -166,4 +148,3 @@ namespace board_ros
         }
 
     } // namespace track
-} // namespace board_ros

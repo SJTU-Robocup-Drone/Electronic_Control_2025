@@ -427,8 +427,9 @@ void returning(ros::Rate &rate)
 
 void detecting(ros::Rate &rate)
 {
-    static board_ros::track::TrackerDropper compute;
-    board_ros::track::Endpoints establishedPoints;
+    static track::Learner compute;
+    static track::Learner compute_v;
+    track::Endpoints establishedPoints;
     ros::Time switch_time = ros::Time::now();
     static bool edge = false; // 边沿触发标志
     static bool is_second_learning = false;
@@ -494,16 +495,16 @@ void detecting(ros::Rate &rate)
         case HIGH_LEARNING:
         {
             // 建立模型
-            establishedPoints = compute.endpoints();
-            ROS_INFO("establishedPoints: A(%.2f, %.2f), B(%.2f, %.2f), L=%.2f, valid=%d",
-                     establishedPoints.A.x(), establishedPoints.A.y(),
-                     establishedPoints.B.x(), establishedPoints.B.y(),
-                     establishedPoints.L, establishedPoints.valid);
+            establishedPoints = compute.ep;
+            // ROS_INFO("establishedPoints: A(%.2f, %.2f), B(%.2f, %.2f), L=%.2f, valid=%d",
+            //          establishedPoints.A.x(), establishedPoints.A.y(),
+            //          establishedPoints.B.x(), establishedPoints.B.y(),
+            //          establishedPoints.L, establishedPoints.valid);
 
             // 发布生成的直线模型
-            board_ros::track::publish_endpoints(establishedPoints, target_pose);
+            track::publish_endpoints(establishedPoints, target_pose);
 
-            ROS_INFO("Switch time is %.2f", ros::Time::now().toSec() - switch_time.toSec());
+            // ROS_INFO("Switch time is %.2f", ros::Time::now().toSec() - switch_time.toSec());
             if (ros::Time::now() - switch_time > ros::Duration(30.0))
             {
                 // 初次学习之后移动到端点
@@ -546,25 +547,23 @@ void detecting(ros::Rate &rate)
 
             static double bomb_time;
 
-            establishedPoints = compute.endpoints();
+            establishedPoints = compute.ep;
             // if (compute.predictPassTimes(ros::Time::now(), tA, tB))
             // {
             //     ROS_INFO("Next pass times: tA=%.2f, tB=%.2f", tA.toSec(), tB.toSec());
             // }
 
             double miss;
-            if (compute.solveDirectRelease(ros::Time::now(), window_centre, &miss))
+            if (1)
             {
                 ROS_INFO("DirectRelease: t_rel=%.2f  miss≈%.2fm", window_centre.toSec(), miss);
                 // 触发投弹：fabs(ros::Time::now().toSec() - t_rel.toSec()) < 0.02
             }
 
             // 等待循环建模稳定进入投弹预测
-            if (ros::Time::now() - switch_time > ros::Duration(5.0))
+            if (1)
             {
                 std::pair<ros::Time, ros::Time> window_out;
-                compute.computeReleaseWindow(establishedPoints.A, ros::Time::now(), window_out, &window_centre);
-
                 // 仿真投弹是否成功
                 if ((abs(ros::Time::now().toSec() - window_centre.toSec()) < 0.02) && !edge)
                 {
@@ -573,7 +572,7 @@ void detecting(ros::Rate &rate)
                     edge = true;
                 }
 
-                if ((abs(ros::Time::now().toSec() - compute.config().drop.T_drop - bomb_time - compute.config().drop.sys_delay) < 0.1) && edge)
+                if ((abs(ros::Time::now().toSec() - 0.5 ) < 0.1) && edge)
                 {
                     edge = false;
                     if (distance(current_pose, target_pose.pose.position) < 2 * threshold_distance)
@@ -602,10 +601,15 @@ void detecting(ros::Rate &rate)
                 ros::spinOnce();
                 local_pos_pub.publish(pose); // 保持悬停
                 rate.sleep();
-
-                visionCallback(target_pose);
-                geometry_msgs::Vector3 v = computeAverageVelocity();
-                ROS_INFO_THROTTLE(0.2, "Speed is %2f", sqrt(v.x * v.x + v.y * v.y));
+                
+                // 目标速度解算
+                compute_v.feed(target_pose);
+                geometry_msgs::Vector3 v;
+                compute_v.fitLinearVelocityRANSAC(v.x,v.y,0.2,0.2);
+                // visionCallback(target_pose);
+                // v = computeAverageVelocity();
+                
+                ROS_INFO_THROTTLE(0.1, "Speed is %2f", sqrt(v.x * v.x + v.y * v.y));
                 // 计算投影距离
                 geometry_msgs::PoseStamped tgt_pose = target_pose;
                 tgt_pose.pose.position.z = current_pose.pose.position.z;
