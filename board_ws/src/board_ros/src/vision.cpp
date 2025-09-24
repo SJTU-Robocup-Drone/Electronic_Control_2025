@@ -179,7 +179,7 @@ void random_target_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
     targetArray[6].x = global_x;
     targetArray[6].y = global_y;
     targetArray[6].isValid = true;
-    ROS_INFO_THROTTLE(1,"Received random target at (%.2f, %.2f)", global_x, global_y);
+    ROS_INFO_THROTTLE(1.0, "Received random target at (%.2f, %.2f)", global_x, global_y);
     // ADJUSTING阶段刷新标志位
     if (mission_state == ADJUSTING)
         adjust_has_target = true;
@@ -300,8 +300,8 @@ void receive_target()
     }
 
     // 判断是否为移动靶
-    if (current_index == 4)
-        is_moving_target = true;
+    if (current_index == 4) is_moving_target = true;
+    else is_moving_target = false;
 
     // 如果调整阶段靶标位置连续4次偏差超过0.5米，则认为视觉误识别（假定OVERLOOKING的识别结果没有问题，因为之前没有出过错）
     if (mission_state == ADJUSTING)
