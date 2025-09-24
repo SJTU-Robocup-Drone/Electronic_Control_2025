@@ -609,22 +609,25 @@ void detecting(ros::Rate &rate)
                 compute_v.fitLinearVelocityRANSAC(v.x,v.y,0.2,0.2);
                 // visionCallback(target_pose);
                 // v = computeAverageVelocity();
-                
-                ROS_INFO_THROTTLE(0.1, "Speed is %2f", sqrt(v.x * v.x + v.y * v.y));
                 // 计算投影距离
                 geometry_msgs::PoseStamped tgt_pose = target_pose;
                 tgt_pose.pose.position.z = current_pose.pose.position.z;
                 // 用于判断小车是否从远处向无人机投影逼近
                 if (distance(current_pose, tgt_pose.pose.position) >= 0.40)
                 {
+                    if (tank_state == false)
+                        ROS_INFO("TANK_STATE gets into true.");
                     tank_state = true;
-                    ROS_INFO("TANK_STATE gets into true.");
+                    
                 }
-                if (distance(current_pose, tgt_pose.pose.position) / sqrt(v.x*v.x+v.y*v.y) <= 0.10 && tank_state == true)
+
+                double velocity = sqrt(v.x * v.x + v.y * v.y);
+                ROS_INFO("Speed is %2f", velocity);
+                if (distance(current_pose, tgt_pose.pose.position) / velocity <= 0.10 && velocity == 0 && tank_state == true)
                 {
                     follow_bombing(rate, 1);
                     ROS_INFO("Bomb now");
-                    return;
+                    return; 
                 }
             }
             break;
