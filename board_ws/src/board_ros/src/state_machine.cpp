@@ -430,6 +430,7 @@ void detecting(ros::Rate &rate)
     static track::Learner compute;
     static track::Learner compute_v;
     track::Endpoints establishedPoints;
+    track::Endpoints velocityPoints;
     ros::Time switch_time = ros::Time::now();
     static bool edge = false; // 边沿触发标志
     static bool is_second_learning = false;
@@ -622,6 +623,9 @@ void detecting(ros::Rate &rate)
                 }
 
                 double velocity = sqrt(v.x * v.x + v.y * v.y);
+                velocityPoints.B = {v.x, v.y};
+                velocityPoints.L = velocity;
+                track::publish_endpoints(velocityPoints, target_pose);
                 ROS_INFO("Speed is %2f", velocity);
                 if (distance(current_pose, tgt_pose.pose.position) / velocity <= 0.10 && velocity == 0 && tank_state == true)
                 {
