@@ -156,6 +156,59 @@ def detect_red_cross(frame):
     return cross_center
 
 
+def check_queue(items, class_id, confidence, x, y, z):
+    item = items[class_id]
+    if(item == 'tank'):
+        if confidence > 0.7:
+            if item[1] < 1:
+                item[1] += 1
+                item[2].append([x, y, z])
+            else:
+                item[2].pop(0)
+                item[2].append([x, y, z])
+        
+        if item[2]:
+            x_avg = sum(p[0] for p in item[2]) / len(item[2])
+            y_avg = sum(p[1] for p in item[2]) / len(item[2])
+            z_avg = sum(p[2] for p in item[2]) / len(item[2])
+        else:
+            x_avg, y_avg, z_avg = 0, 0, 0
+        return x_avg, y_avg, z_avg
+    if(item == 'red'):
+        if confidence > 0.7:
+            if item[1] < 2:
+                item[1] += 1
+                item[2].append([x, y, z])
+            else:
+                item[2].pop(0)
+                item[2].append([x, y, z])
+    
+        if item[2]:
+            x_avg = sum(p[0] for p in item[2]) / len(item[2])
+            y_avg = sum(p[1] for p in item[2]) / len(item[2])
+            z_avg = sum(p[2] for p in item[2]) / len(item[2])
+        else:
+            x_avg, y_avg, z_avg = 0, 0, 0
+        return x_avg, y_avg, z_avg
+    else:
+        if confidence > 0.7:
+            if item[1] < 5:
+                item[1] += 1
+                item[2].append([x, y, z])
+            else:
+                item[2].pop(0)
+                item[2].append([x, y, z])
+    
+        if item[2]:
+            x_avg = sum(p[0] for p in item[2]) / len(item[2])
+            y_avg = sum(p[1] for p in item[2]) / len(item[2])
+            z_avg = sum(p[2] for p in item[2]) / len(item[2])
+        else:
+            x_avg, y_avg, z_avg = 0, 0, 0
+        return x_avg, y_avg, z_avg
+        
+        
+
 
 
 # Coordinate scaling function (YOLO output -> original image size)
@@ -229,7 +282,7 @@ def detect_targets():
 
                 class_id = int(cls)
 
-                
+                x, y, z = check_queue(items, class_id, float(conf), x, y, z)
                 # Publish detection results
                 if conf > 0.8:
                     detection_msg = PointStamped()
@@ -329,4 +382,5 @@ if __name__ == "__main__":
             detection_thread.join(timeout=1.0)
 
         rospy.loginfo("[INFO] Node shut down safely.")
+
 
