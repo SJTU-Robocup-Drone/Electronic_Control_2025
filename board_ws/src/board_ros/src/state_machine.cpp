@@ -495,6 +495,7 @@ void detecting(ros::Rate &rate)
         case HIGH_LEARNING:
         {
             // 建立模型
+            compute.compute();
             establishedPoints = compute.ep;
             // ROS_INFO("establishedPoints: A(%.2f, %.2f), B(%.2f, %.2f), L=%.2f, valid=%d",
             //          establishedPoints.A.x(), establishedPoints.A.y(),
