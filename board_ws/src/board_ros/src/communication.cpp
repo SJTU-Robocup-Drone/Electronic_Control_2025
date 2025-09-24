@@ -96,7 +96,7 @@ void init_nav_interfaces(ros::NodeHandle &nh)
     state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, state_cb);
     nav_check_sub = nh.subscribe<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 50, nav_check_cb);
     random_target_sub = nh.subscribe<geometry_msgs::PointStamped>("/random_target", 10, random_target_cb);
-    target_sub = nh.subscribe<geometry_msgs::PoseStamped>("/target", 10, target_cb);
+    // target_sub = nh.subscribe<geometry_msgs::PoseStamped>("/target", 10, target_cb);
     return_state_sub = nh.subscribe<std_msgs::Bool>("/return_state", 10, return_state_cb);
     is_done_sub = nh.subscribe<std_msgs::Bool>("/done_state", 10, is_done_cb);
     detection_sub = nh.subscribe<geometry_msgs::PointStamped>("/detection_results", 10, detection_cb);

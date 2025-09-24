@@ -281,7 +281,7 @@ void bombing(ros::Rate &rate)
     // 速度控制较低速上升，防止吹跑已经投放好的弹
     ROS_INFO("Bombing %d done, rising to normal flight height.", target_index + 1);
 
-    vertically_set_vel_to_move(0.2, 0.9, rate);
+    vertically_set_vel_to_move(0.2, 0.8, rate);
 
     if (++target_index >= 3)
         mission_state = OBSTACLE_AVOIDING;
@@ -445,6 +445,7 @@ void detecting(ros::Rate &rate)
     } detecting_state = APPROACHING;
 
     // 稳定位姿
+    vertically_set_vel_to_move(0.7, 3.0, rate);
     hovering(3.0, 2, false, rate);
 
     // 主循环：每步推进一次状态机
@@ -486,7 +487,7 @@ void detecting(ros::Rate &rate)
             }
             else
             {
-                hovering(3.5, 5, true, rate);
+                hovering(3.0, 5, true, rate);
                 ROS_INFO("No target found, hovering.");
             }
             break;
@@ -623,7 +624,7 @@ void detecting(ros::Rate &rate)
 
                 double velocity = sqrt(v.x * v.x + v.y * v.y);
                 ROS_INFO("Speed is %2f", velocity);
-                if (distance(current_pose, tgt_pose.pose.position) / velocity <= 0.10 && velocity == 0 && tank_state == true)
+                if (distance(current_pose, tgt_pose.pose.position) / 3 <= 0.10 && velocity != 0 && tank_state == true)
                 {
                     follow_bombing(rate, 1);
                     ROS_INFO("Bomb now");
@@ -1070,7 +1071,7 @@ void return_check_stuck(ros::Rate &rate)
 
         horizontally_set_pose_to_move(0, 0, rate);
 
-        vertically_set_pose_to_move(0.9, rate);
+        vertically_set_pose_to_move(0.8, rate);
 
         mission_state = ADJUSTING;
         need_exit = true;
@@ -1135,7 +1136,7 @@ void follow_bombing(ros::Rate &rate, float kp)
     // 速度控制较低速上升，防止吹跑已经投放好的弹
     ROS_INFO("Bombing %d done, rising to normal flight height.", target_index + 1);
 
-    vertically_set_vel_to_move(0.2, 0.9, rate);
+    vertically_set_vel_to_move(0.2, 0.8, rate);
 
     if (++target_index >= 3)
         mission_state = OBSTACLE_AVOIDING;
