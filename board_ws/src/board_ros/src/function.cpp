@@ -86,7 +86,13 @@ void KalmanUpdate(float obsX, float obsY, float& outX, float& outY,float& outVx,
     /* 1. 预测（恒定速度模型，dt=1） */
     float F[4][4] = {{1,0,1,0}, {0,1,0,1}, {0,0,1,0}, {0,0,0,1}};
     float Q[4][4] = {{0}};
-    addDiag44(Q, 0.1f);          // 过程噪声强度可调
+
+    //TODO:目前通过速度判断靶标是否为静止靶标或者移动靶，之后需要将速度条件判断变成靶标类别判断，使得KF适用于静止和移动
+    static float qStill = 1e-4f;     // 静止用
+    static float qMove  = 0.1f;      // 运动用
+    float spd = std::fabs(x_[2]) + std::fabs(x_[3]);
+    float qScale = (spd < 0.02f) ? qStill : qMove;   // 速度阈值 0.02 可改
+    addDiag44(Q, qScale);          // 过程噪声强度可调
 
     /* x = F*x */
     float tmp[4];
