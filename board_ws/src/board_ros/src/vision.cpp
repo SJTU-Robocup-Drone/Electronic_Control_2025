@@ -152,9 +152,6 @@ void random_target_cb(const geometry_msgs::PointStamped::ConstPtr &msg)
     if (targetArray[6].isBombed || !vision_state_msg.data)
         return;        // 如果vision_state为假或已经投过随机靶就不需要更新了
 
-    // 过滤偶尔的误识别信息
-    if(++targetArray[6].receive_cnt <= 10) return;
-
     // 定义相机系
     double rel_x = msg->point.x;
     double rel_y = msg->point.y;
