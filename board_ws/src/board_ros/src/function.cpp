@@ -71,7 +71,7 @@ float x, y, vx, vy;
 KalmanUpdate(obsX, obsY, x, y, vx, vy);
 printf("pos=(%.2f,%.2f)  vel=(%.2f,%.2f)\n", x, y, vx, vy);
 */
-void KalmanUpdate(float obsX, float obsY, float& outX, float& outY)
+void KalmanUpdate(float obsX, float obsY, float& outX, float& outY,float& outVx, float& outVy)
 {
     /* 第一次调用：用观测初始化状态，协方差置单位阵 */
     if (firstCall_)
