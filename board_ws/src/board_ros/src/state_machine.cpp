@@ -429,6 +429,7 @@ void detecting(ros::Rate &rate)
 {
     static track::Learner compute;
     static track::Learner compute_v;
+    compute_v.prm.learn_window_sec = 0.3;
     track::Endpoints establishedPoints;
     track::Endpoints velocityPoints;
     ros::Time switch_time = ros::Time::now();
@@ -628,7 +629,7 @@ void detecting(ros::Rate &rate)
                 velocityPoints.L = velocity;
                 track::publish_endpoints(velocityPoints, target_pose);
                 ROS_INFO("Speed is %2f", velocity);
-                if (distance(current_pose, tgt_pose.pose.position) / 3 <= 0.10 && velocity != 0 && tank_state == true)
+                if (distance(current_pose, tgt_pose.pose.position) / velocity <= 1.6 && velocity != 0 && tank_state == true)
                 {
                     follow_bombing(rate, 1);
                     ROS_INFO("Bomb now");
