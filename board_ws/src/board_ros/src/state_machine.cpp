@@ -605,9 +605,11 @@ void detecting(ros::Rate &rate)
                 ros::spinOnce();
                 local_pos_pub.publish(pose); // 保持悬停
                 rate.sleep();
-                
                 // 目标速度解算
-                compute_v.feed(target_pose);
+                geometry_msgs::Vector3 kf_v;
+                geometry_msgs::PoseStamped calc_target = target_pose;
+                KalmanUpdate(target_pose.pose.position.x, target_pose.pose.position.y, calc_target.pose.position.x,calc_target.pose.position.y,kf_v.x,kf_v.y);
+                compute_v.feed(calc_target);
                 geometry_msgs::Vector3 v;
                 compute_v.fitLinearVelocityRANSAC(v.x,v.y,0.2,0.2);
                 // visionCallback(target_pose);

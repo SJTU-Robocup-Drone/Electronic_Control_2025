@@ -37,9 +37,9 @@ struct FollowParams
 };
 
 // 卡尔曼滤波接口
-void KalmanUpdate(float obsX, float obsY,
-                  float& outX, float& outY,
-                  float& outVx, float& outVy);
+void KalmanUpdate(double obsX, double obsY,
+                  double& outX, double& outY,
+                  double& outVx, double& outVy);
 
 // 计算“正上方跟随”的速度控制指令：速度XY + 位置Z（高度保持）
 void computeOverheadVelocityCmd(const geometry_msgs::Vector3 &tgt_vel, // 目标速度（请从你的视觉/KF得到）
