@@ -26,148 +26,140 @@ std::queue<RetryPoint> retry_navigating_points; // 针对避障点的重试队�
 Target targetArray[7]; // 储存靶标信息的数组
 
 
-
 /* ============ 全局变量（静态，外部不可见） ============ */
-static float x_[4] = {0};        // [x, y, vx, vy]
-static float P_[4][4] = {{0}};   // 协方差矩阵
-static bool  firstCall_ = true;  // 自动用第一次观测做初始化
+static float x_[4]   = {0};        // [x, y, vx, vy]
+static float P_[4][4]= {{0}};      // 协方差
+static bool  firstCall_ = true;
 /* ======================================================= */
 
-/* 4x4 矩阵乘法：C = A*B */
 static void mul44(const float A[4][4], const float B[4][4], float C[4][4])
 {
-    for (int i = 0; i < 4; ++i)
-        for (int j = 0; j < 4; ++j)
-        {
-            float s = 0;
-            for (int k = 0; k < 4; ++k) s += A[i][k] * B[k][j];
-            C[i][j] = s;
+    for(int i=0;i<4;++i)
+        for(int j=0;j<4;++j){
+            float s=0;
+            for(int k=0;k<4;++k) s+=A[i][k]*B[k][j];
+            C[i][j]=s;
         }
 }
 
-/* 4x4 矩阵加常数对角：A += diag(v) */
-static void addDiag44(float A[4][4], float v)
+static void add44(const float A[4][4], const float B[4][4], float C[4][4])
 {
-    for (int i = 0; i < 4; ++i) A[i][i] += v;
+    for(int i=0;i<4;++i)
+        for(int j=0;j<4;++j) C[i][j]=A[i][j]+B[i][j];
 }
 
-/* 求 2x2 逆矩阵 */
 static bool inv22(const float M[2][2], float Minv[2][2])
 {
     float det = M[0][0]*M[1][1] - M[0][1]*M[1][0];
-    if (std::fabs(det) < 1e-6f) return false;
-    float invDet = 1.0f / det;
-    Minv[0][0] =  M[1][1] * invDet;
-    Minv[0][1] = -M[0][1] * invDet;
-    Minv[1][0] = -M[1][0] * invDet;
-    Minv[1][1] =  M[0][0] * invDet;
+    if(std::fabs(det)<1e-6f) return false;
+    float id=1.f/det;
+    Minv[0][0]= M[1][1]*id;  Minv[0][1]=-M[0][1]*id;
+    Minv[1][0]=-M[1][0]*id;  Minv[1][1]= M[0][0]*id;
     return true;
 }
 
-// 卡尔曼滤波
-/*
-使用示例：
-float x, y, vx, vy;
-KalmanUpdate(obsX, obsY, x, y, vx, vy);
-printf("pos=(%.2f,%.2f)  vel=(%.2f,%.2f)\n", x, y, vx, vy);
-*/
-void KalmanUpdate(float obsX, float obsY, float& outX, float& outY,float& outVx, float& outVy)
+/* 可变 dt 版卡尔曼更新 */
+void KalmanUpdate(float obsX, float obsY, float dt,
+                  float& outX, float& outY,
+                  float& outVx, float& outVy)
 {
-    /* 第一次调用：用观测初始化状态，协方差置单位阵 */
-    if (firstCall_)
-    {
-        x_[0] = obsX;  x_[1] = obsY;  x_[2] = 0;  x_[3] = 0;
-        for (int i = 0; i < 4; ++i)
-            for (int j = 0; j < 4; ++j)
-                P_[i][j] = (i == j) ? 10.0f : 0.0f;
-        firstCall_ = false;
+    /* ---------- 首次初始化 ---------- */
+    if(firstCall_){
+        x_[0]=obsX;  x_[1]=obsY;  x_[2]=0;  x_[3]=0;
+        for(int i=0;i<4;++i)
+            for(int j=0;j<4;++j) P_[i][j] = (i==j)?10.f:0.f;
+        firstCall_=false;
     }
 
-    /* 1. 预测（恒定速度模型，dt=1） */
-    float F[4][4] = {{1,0,1,0}, {0,1,0,1}, {0,0,1,0}, {0,0,0,1}};
-    float Q[4][4] = {{0}};
+    /* ---------- 1. 预测 ---------- */
+    float dt2=dt*dt;
+    float dt3=dt2*dt;
+    float dt4=dt2*dt2;
 
-    //TODO:目前通过速度判断靶标是否为静止靶标或者移动靶，之后需要将速度条件判断变成靶标类别判断，使得KF适用于静止和移动
-    static float qStill = 1e-4f;     // 静止用
-    static float qMove  = 0.1f;      // 运动用
-    float spd = std::fabs(x_[2]) + std::fabs(x_[3]);
-    float qScale = (spd < 0.02f) ? qStill : qMove;   // 速度阈值 0.02 可改
-    addDiag44(Q, qScale);          // 过程噪声强度可调
+    /* F 矩阵 */
+    float F[4][4]={
+        {1,0,dt,0},
+        {0,1,0,dt},
+        {0,0,1,0},
+        {0,0,0,1}
+    };
+
+    /* 加速度噪声功率：按当前速度判断静止/运动 */
+    float sa2;               // σ²
+    float spd=fabsf(x_[2])+fabsf(x_[3]);
+    if(spd<0.02f) sa2=1e-4f; else sa2=0.1f;   // 可再调
+
+    /* Q 矩阵 = G*σ²*Gᵀ*dt */
+    float Q[4][4]={0};
+    Q[0][0]=0.25f*dt4*sa2;  Q[0][2]=0.5f*dt3*sa2;
+    Q[1][1]=0.25f*dt4*sa2;  Q[1][3]=0.5f*dt3*sa2;
+    Q[2][0]=0.5f*dt3*sa2;   Q[2][2]=dt2*sa2;
+    Q[3][1]=0.5f*dt3*sa2;   Q[3][3]=dt2*sa2;
 
     /* x = F*x */
     float tmp[4];
-    for (int i = 0; i < 4; ++i)
-    {
-        tmp[i] = 0;
-        for (int k = 0; k < 4; ++k) tmp[i] += F[i][k] * x_[k];
+    for(int i=0;i<4;++i){
+        tmp[i]=0;
+        for(int k=0;k<4;++k) tmp[i]+=F[i][k]*x_[k];
     }
-    for (int i = 0; i < 4; ++i) x_[i] = tmp[i];
+    for(int i=0;i<4;++i) x_[i]=tmp[i];
 
-    /* P = F*P*F' + Q */
-    float FP[4][4];
-    mul44(F, P_, FP);
-    float FT[4][4];
-    for (int i = 0; i < 4; ++i)
-        for (int j = 0; j < 4; ++j) FT[i][j] = F[j][i];
-    mul44(FP, FT, P_);
-    addDiag44(P_, 0.1f);   // 即 Q 的对角
+    /* P = F*P*Fᵀ + Q */
+    float FT[4][4], FP[4][4];
+    for(int i=0;i<4;++i)
+        for(int j=0;j<4;++j) FT[i][j]=F[j][i];
+    mul44(F,P_,FP);
+    mul44(FP,FT,P_);
+    add44(P_,Q,P_);
 
-    /* 2. 更新 */
-    float H[2][4] = {{1,0,0,0}, {0,1,0,0}};
-    float R[2][2] = {{1,0}, {0,1}};   // 观测噪声强度可调
+    /* ---------- 2. 更新 ---------- */
+    float H[2][4]={{1,0,0,0},{0,1,0,0}};
+    float R[2][2]={{1,0},{0,1}};   // 观测噪声，可调
 
-    /* y = z - H*x */
-    float y[2] = { obsX - x_[0], obsY - x_[1] };
+    /* 新息 y = z - H*x */
+    float y[2]={ obsX - x_[0], obsY - x_[1] };
 
-    /* S = H*P*H' + R */
-    float HP[2][4];
-    for (int i = 0; i < 2; ++i)
-        for (int j = 0; j < 4; ++j)
-        {
-            HP[i][j] = 0;
-            for (int k = 0; k < 4; ++k) HP[i][j] += H[i][k] * P_[k][j];
-        }
-    float S[2][2] = {{0}};
-    for (int i = 0; i < 2; ++i)
-        for (int j = 0; j < 2; ++j)
-        {
-            S[i][j] = R[i][j];
-            for (int k = 0; k < 4; ++k) S[i][j] += HP[i][k] * H[j][k];
+    /* S = H*P*Hᵀ + R */
+    float HP[2][4]={0}, S[2][2];
+    for(int i=0;i<2;++i)
+        for(int j=0;j<4;++j)
+            for(int k=0;k<4;++k) HP[i][j]+=H[i][k]*P_[k][j];
+    for(int i=0;i<2;++i)
+        for(int j=0;j<2;++j){
+            S[i][j]=R[i][j];
+            for(int k=0;k<4;++k) S[i][j]+=HP[i][k]*H[j][k];
         }
 
-    /* K = P*H'*inv(S) */
+    /* K = P*Hᵀ*inv(S) */
     float Sinv[2][2];
-    if (!inv22(S, Sinv)) return;          // 奇异则跳过更新
-    float K[4][2] = {{0}};
-    for (int i = 0; i < 4; ++i)
-        for (int j = 0; j < 2; ++j)
-            for (int k = 0; k < 2; ++k)
-                K[i][j] += P_[i][k] * H[0][k] * Sinv[k][j]   // H' 按列展开
-                         +  P_[i][k+2] * H[1][k] * Sinv[k][j];
+    if(!inv22(S,Sinv)) return;          // 奇异就跳过
+    float PHt[4][2]={0};
+    for(int i=0;i<4;++i)
+        for(int j=0;j<2;++j)
+            for(int k=0;k<4;++k) PHt[i][j]+=P_[i][k]*H[j][k];
+    float K[4][2]={0};
+    for(int i=0;i<4;++i)
+        for(int j=0;j<2;++j)
+            for(int k=0;k<2;++k) K[i][j]+=PHt[i][k]*Sinv[k][j];
 
     /* x = x + K*y */
-    for (int i = 0; i < 4; ++i) x_[i] += K[i][0]*y[0] + K[i][1]*y[1];
+    for(int i=0;i<4;++i) x_[i]+=K[i][0]*y[0]+K[i][1]*y[1];
 
     /* P = (I - K*H)*P */
-    float KH[4][4] = {{0}};
-    for (int i = 0; i < 4; ++i)
-        for (int j = 0; j < 4; ++j)
-            for (int k = 0; k < 2; ++k)
-                KH[i][j] += K[i][k] * H[k][j];
-    float IKH[4][4];
-    for (int i = 0; i < 4; ++i)
-        for (int j = 0; j < 4; ++j)
-            IKH[i][j] = (i==j) - KH[i][j];
+    float KH[4][4]={0}, IKH[4][4];
+    for(int i=0;i<4;++i)
+        for(int j=0;j<4;++j)
+            for(int k=0;k<2;++k) KH[i][j]+=K[i][k]*H[k][j];
+    for(int i=0;i<4;++i)
+        for(int j=0;j<4;++j) IKH[i][j]=(i==j)-KH[i][j];
     float tmpP[4][4];
-    mul44(IKH, P_, tmpP);
-    for (int i = 0; i < 4; ++i)
-        for (int j = 0; j < 4; ++j) P_[i][j] = tmpP[i][j];
+    mul44(IKH,P_,tmpP);
+    for(int i=0;i<4;++i)
+        for(int j=0;j<4;++j) P_[i][j]=tmpP[i][j];
 
-    /* 3. 输出 */
-    outX = x_[0];
-    outY = x_[1];
-    outVx = x_[2];
-    outVy = x_[3];
+    /* ---------- 3. 输出 ---------- */
+    outX =x_[0];  outY =x_[1];
+    outVx=x_[2];  outVy=x_[3];
 }
 
 void hovering(float z, float time, bool if_exit, ros::Rate &rate)
