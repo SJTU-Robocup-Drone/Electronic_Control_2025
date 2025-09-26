@@ -450,7 +450,11 @@ void detecting(ros::Rate &rate)
     // 稳定位姿
     vertically_set_vel_to_move(0.7, 3.0, rate);
     hovering(3.0, 2, false, rate);
-
+    const double PI = 3.14159265358979323846;
+    geometry_msgs::Quaternion quat_msg;
+    tf2::Quaternion tf_quat;
+    tf_quat.setRPY(0, 0, PI/4);
+    quat_msg = tf2::toMsg(tf_quat);  // 转换为 geometry_msgs
     // 主循环：每步推进一次状态机
     while (ros::ok())
     {
@@ -486,6 +490,12 @@ void detecting(ros::Rate &rate)
                 hovering(3.0, 3, false, rate);
                 // 切换到高空学习模式
                 detecting_state = HIGH_LEARNING;
+                switch_time = ros::Time::now();
+                // 转45度
+                while(ros::ok() && ros::Time::now() - switch_time < ros::Duration(2.0)){
+                    pose.pose.orientation = quat_msg;
+                    local_pos_pub.publish(pose);
+                }
                 switch_time = ros::Time::now();
             }
             else
@@ -611,8 +621,8 @@ void detecting(ros::Rate &rate)
                 // 1.卡尔曼滤波速度
                 geometry_msgs::Vector3 kf_v;
                 geometry_msgs::PoseStamped calc_target = target_pose;
-                KalmanUpdate(target_pose.pose.position.x, target_pose.pose.position.y, calc_target.pose.position.x,calc_target.pose.position.y,kf_v.x,kf_v.y);
-                compute_v.feed(calc_target);
+                // KalmanUpdate(target_pose.pose.position.x, target_pose.pose.position.y, calc_target.pose.position.x,calc_target.pose.position.y,kf_v.x,kf_v.y);
+                compute_v.feed(target_pose);
                 // 2.RANSAC速度解算
                 geometry_msgs::Vector3 v;
                 compute_v.fitLinearVelocityRANSAC(v.x,v.y,0.2,0.2);
@@ -642,9 +652,10 @@ void detecting(ros::Rate &rate)
                 // ROS_INFO("Speed is %2f", velocity);
                 
                 // 投弹判断
-                if (projection_distance / velocity <= 2.2 && velocity >= 0.05 && tank_state == true)
+                if (projection_distance / velocity <= 2.2 && velocity >= 0.05  && velocity <= 0.25 && tank_state == true)
                 {
-                    follow_bombing(rate, 2);
+                    ROS_INFO("Speed is %2f", velocity);
+                    mission_state = BOMBING;
                     ROS_INFO("Bomb now");
                     return; 
                 }
