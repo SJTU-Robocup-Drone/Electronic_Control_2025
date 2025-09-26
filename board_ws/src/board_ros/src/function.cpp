@@ -48,7 +48,7 @@ static void mul44(const double A[4][4], const double B[4][4], double C[4][4])
 static void addDiag44(double A[4][4], double v)
 {
     for(int i=0;i<4;++i)
-        for(int j=0;j<4;++j) C[i][j]=A[i][j]+B[i][j];
+        A[i][i] += v;
 }
 
 /* 求 2x2 逆矩阵 */
@@ -76,8 +76,9 @@ void KalmanUpdate(double obsX, double obsY, double& outX, double& outY,double& o
     /* ---------- 首次初始化 ---------- */
     if(firstCall_){
         x_[0]=obsX;  x_[1]=obsY;  x_[2]=0;  x_[3]=0;
+        // 优化：降低初始不确定性，加快收敛
         for(int i=0;i<4;++i)
-            for(int j=0;j<4;++j) P_[i][j] = (i==j)?10.f:0.f;
+            for(int j=0;j<4;++j) P_[i][j] = (i==j)?(i<2?0.1f:1.0f):0.f;  // 位置不确定性0.1，速度不确定性1.0
         firstCall_=false;
     }
 
@@ -86,8 +87,8 @@ void KalmanUpdate(double obsX, double obsY, double& outX, double& outY,double& o
     double Q[4][4] = {{0}};
 
     //TODO:目前通过速度判断靶标是否为静止靶标或者移动靶，之后需要将速度条件判断变成靶标类别判断，使得KF适用于静止和移动
-    static double qStill = 1e-4f;     // 静止用
-    static double qMove  = 0.1f;      // 运动用
+    static double qStill = 5e-3f;     // 静止用 - 优化：增加响应性
+    static double qMove  = 0.05f;     // 运动用 - 优化：平衡稳定性和响应性
     double spd = std::fabs(x_[2]) + std::fabs(x_[3]);
     double qScale = (spd < 0.02f) ? qStill : qMove;   // 速度阈值 0.02 可改
     addDiag44(Q, qScale);          // 过程噪声强度可调
@@ -108,11 +109,15 @@ void KalmanUpdate(double obsX, double obsY, double& outX, double& outY,double& o
     for (int i = 0; i < 4; ++i)
         for (int j = 0; j < 4; ++j) FT[i][j] = F[j][i];
     mul44(FP, FT, P_);
-    addDiag44(P_, 0.1f);   // 即 Q 的对角
+    
+    // Add process noise Q to covariance matrix
+    for (int i = 0; i < 4; ++i)
+        for (int j = 0; j < 4; ++j)
+            P_[i][j] += Q[i][j];
 
     /* 2. 更新 */
     double H[2][4] = {{1,0,0,0}, {0,1,0,0}};
-    double R[2][2] = {{1,0}, {0,1}};   // 观测噪声强度可调
+    double R[2][2] = {{0.02,0}, {0,0.02}};   // 观测噪声强度可调 - 优化：降低观测噪声，提高收敛速度
 
     /* y = z - H*x */
     double y[2] = { obsX - x_[0], obsY - x_[1] };

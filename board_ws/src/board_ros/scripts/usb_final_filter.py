@@ -122,9 +122,15 @@ def init_tank_kalman():
         [1, 0, 0, 0],
         [0, 1, 0, 0]
     ], dtype=np.float32)
-    kf.processNoiseCov = np.eye(4, dtype=np.float32) * 1e-2
-    kf.measurementNoiseCov = np.eye(2, dtype=np.float32) * 1e-1
-    kf.errorCovPost = np.eye(4, dtype=np.float32)
+    
+    # 优化的噪声参数 - 与usb_filter.py保持一致
+    Q_diag = np.array([5e-3, 5e-3, 1e-2, 1e-2], dtype=np.float32)  # [x, y, vx, vy]
+    kf.processNoiseCov = np.diag(Q_diag)
+    kf.measurementNoiseCov = np.eye(2, dtype=np.float32) * 2e-2
+    
+    # 优化的初始协方差矩阵
+    P_diag = np.array([0.1, 0.1, 1.0, 1.0], dtype=np.float32)  # [x, y, vx, vy]
+    kf.errorCovPost = np.diag(P_diag)
     return kf
 
 def update_kf_dt(kf, dt):

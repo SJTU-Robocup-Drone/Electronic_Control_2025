@@ -78,6 +78,11 @@ tank_lost_timeout = 2.0
 tank_traj_world = deque(maxlen=60)  # 世界坐标轨迹（米）
 tank_traj_pix = deque(maxlen=60)    # 像素轨迹（绘制用）
 
+# 滤波器性能监控变量
+tank_innovation_history = deque(maxlen=10)  # 创新序列历史
+tank_velocity_history = deque(maxlen=5)     # 速度历史
+tank_convergence_count = 0                  # 收敛计数器
+
 # --------------------------
 
 #卡尔曼滤波所需的初始化的值
@@ -97,13 +102,19 @@ def init_tank_kalman():
         [0, 1, 0, 0]
     ], dtype=np.float32)
 
-    #过程噪声协方差矩阵 (Q)
-    #单位矩阵乘以标量1e-2，表示状态向量中各个维度值的过程噪声方差
-    kf.processNoiseCov = np.eye(4, dtype=np.float32) * 1e-2
-    #观测噪声协方差矩阵 (R)
-    kf.measurementNoiseCov = np.eye(2, dtype=np.float32) * 1e-1
-    #后验估计协方差矩阵 (P)
-    kf.errorCovPost = np.eye(4, dtype=np.float32)
+    # 优化的过程噪声协方差矩阵 (Q) - 增加过程噪声以提升响应速度
+    # 位置方差稍小，速度方差适中，提升对运动变化的适应性
+    Q_diag = np.array([5e-3, 5e-3, 1e-2, 1e-2], dtype=np.float32)  # [x, y, vx, vy]
+    kf.processNoiseCov = np.diag(Q_diag)
+    
+    # 优化的观测噪声协方差矩阵 (R) - 降低观测噪声以信任观测值
+    # 提高对观测的信任度，加快收敛
+    kf.measurementNoiseCov = np.eye(2, dtype=np.float32) * 2e-2
+    
+    # 优化的初始后验估计协方差矩阵 (P) - 降低初始不确定性
+    # 位置不确定性适中，速度不确定性较大
+    P_diag = np.array([0.1, 0.1, 1.0, 1.0], dtype=np.float32)  # [x, y, vx, vy]
+    kf.errorCovPost = np.diag(P_diag)
 
     return kf
 
@@ -115,6 +126,46 @@ def update_kf_dt(kf, dt):
     A[1, 3] = dt
     kf.transitionMatrix = A
     return dt
+
+# 自适应噪声调整函数
+def adaptive_noise_adjustment(kf, velocity_magnitude, dt):
+    """
+    根据目标运动特性动态调整噪声参数
+    velocity_magnitude: 目标速度大小
+    dt: 时间间隔
+    """
+    # 速度阈值定义
+    SLOW_THRESHOLD = 0.1  # m/s
+    FAST_THRESHOLD = 2.0  # m/s
+    
+    # 基础噪声参数
+    base_process_noise = np.array([5e-3, 5e-3, 1e-2, 1e-2], dtype=np.float32)
+    base_measurement_noise = 2e-2
+    
+    # 根据速度调整过程噪声
+    if velocity_magnitude < SLOW_THRESHOLD:
+        # 慢速/静止目标 - 降低过程噪声，提高稳定性
+        noise_scale = 0.5
+    elif velocity_magnitude > FAST_THRESHOLD:
+        # 快速目标 - 增加过程噪声，提高跟踪响应
+        noise_scale = 2.0
+    else:
+        # 中等速度 - 线性插值
+        ratio = (velocity_magnitude - SLOW_THRESHOLD) / (FAST_THRESHOLD - SLOW_THRESHOLD)
+        noise_scale = 0.5 + 1.5 * ratio
+    
+    # 根据时间间隔调整 - 较大的dt需要更多过程噪声
+    dt_scale = min(2.0, max(0.5, dt / 0.033))  # 基于30fps标准化
+    
+    # 应用调整
+    adjusted_process_noise = base_process_noise * noise_scale * dt_scale
+    kf.processNoiseCov = np.diag(adjusted_process_noise)
+    
+    # 观测噪声根据速度轻微调整
+    measurement_scale = 1.0 + 0.2 * min(1.0, velocity_magnitude / FAST_THRESHOLD)
+    kf.measurementNoiseCov = np.eye(2, dtype=np.float32) * (base_measurement_noise * measurement_scale)
+    
+    return noise_scale, dt_scale
 
 #计算X,P的先验值
 def safe_kf_predict(kf):
@@ -137,13 +188,22 @@ def safe_kf_predict(kf):
 #开始跟踪目标时，初始化滤波器
 def start_tank_tracker(x_world, y_world, t_now):
     global tank_kf, tank_tracking_active, tank_traj_world, tank_traj_pix, tank_last_time, last_tank_detection_time
+    global tank_innovation_history, tank_velocity_history, tank_convergence_count
+    
     tank_kf = init_tank_kalman()
     #初始状态向量,x,y,Vx,Vy
     tank_kf.statePost = np.array([[x_world], [y_world], [0.0], [0.0]], dtype=np.float32)
     tank_tracking_active = True
+    
     #清除世界系，像素系存储的轨迹点
     tank_traj_world.clear()
     tank_traj_pix.clear()
+    
+    # 清除性能监控历史
+    tank_innovation_history.clear()
+    tank_velocity_history.clear()
+    tank_convergence_count = 0
+    
     #加入轨迹点
     tank_traj_world.append((float(x_world), float(y_world)))
     #上一次卡尔曼滤波的更新时间,上一次侦测到tank的时间
@@ -154,20 +214,58 @@ def start_tank_tracker(x_world, y_world, t_now):
 #检测到目标，进行最优估计
 def update_tank_tracker(x_world, y_world, t_now):
     global tank_kf, tank_last_time, last_tank_detection_time
+    global tank_innovation_history, tank_velocity_history, tank_convergence_count
+    
     if tank_kf is None:
         start_tank_tracker(x_world, y_world, t_now)
         return (x_world, y_world, 0.0, 0.0)
 
     #计算dt,即当前时间和上一次检测到tank的时间差，并更新状态转移矩阵A
     dt = update_kf_dt(tank_kf, float(t_now) - float(tank_last_time))
+    
+    # 预测步骤
     safe_kf_predict(tank_kf)
-
+    
+    # 获取当前速度估计用于自适应调整
+    current_state = tank_kf.statePre if hasattr(tank_kf, 'statePre') else tank_kf.statePost
+    vx_current = float(current_state[2, 0]) if current_state.shape[0] > 2 else 0.0
+    vy_current = float(current_state[3, 0]) if current_state.shape[0] > 3 else 0.0
+    velocity_magnitude = np.sqrt(vx_current**2 + vy_current**2)
+    
+    # 自适应噪声调整
+    noise_scale, dt_scale = adaptive_noise_adjustment(tank_kf, velocity_magnitude, dt)
+    
     #观测向量，包含观测到的x,y坐标
     meas = np.array([[x_world], [y_world]], dtype=np.float32)
+    
+    # 计算创新（观测与预测的差异）用于性能监控
+    if hasattr(tank_kf, 'statePre'):
+        pred_x, pred_y = float(tank_kf.statePre[0, 0]), float(tank_kf.statePre[1, 0])
+        innovation = np.sqrt((x_world - pred_x)**2 + (y_world - pred_y)**2)
+        tank_innovation_history.append(innovation)
+    
     #估测值,根据先验预测值和观测值得到最优估计
     est = tank_kf.correct(meas)
     x_est, y_est = float(est[0, 0]), float(est[1, 0])
     vx_est, vy_est = float(est[2, 0]), float(est[3, 0])
+    
+    # 更新速度历史用于趋势分析
+    tank_velocity_history.append(velocity_magnitude)
+    
+    # 收敛性监控
+    if len(tank_innovation_history) >= 3:
+        recent_innovations = list(tank_innovation_history)[-3:]
+        avg_innovation = sum(recent_innovations) / len(recent_innovations)
+        if avg_innovation < 0.05:  # 收敛阈值：5cm
+            tank_convergence_count += 1
+        else:
+            tank_convergence_count = 0
+            
+        # 每20次更新输出一次性能信息
+        if tank_convergence_count == 1 or tank_convergence_count % 20 == 0:
+            rospy.loginfo("[FILTER] Convergence: %d, Avg Innovation: %.3f, Velocity: %.3f, Noise Scale: %.2f", 
+                         tank_convergence_count, avg_innovation, velocity_magnitude, noise_scale)
+    
     #更新滤波的更新时间和tank的观测时间
     tank_last_time = float(t_now)
     last_tank_detection_time = float(t_now)
@@ -192,12 +290,19 @@ def update_tank_tracker(x_world, y_world, t_now):
 #停止跟踪，重置所有变量
 def stop_tank_tracker():
     global tank_tracking_active, tank_kf, tank_last_time, last_tank_detection_time
+    global tank_innovation_history, tank_velocity_history, tank_convergence_count
+    
     if tank_tracking_active:
         rospy.loginfo("[TRACK] Tank tracker stopped.")
     tank_tracking_active = False
     tank_kf = None
     tank_last_time = None
     last_tank_detection_time = None
+    
+    # 清除性能监控变量
+    tank_innovation_history.clear()
+    tank_velocity_history.clear()
+    tank_convergence_count = 0
 
 def grab_thread():
     global latest_frame, grab_running, cap
