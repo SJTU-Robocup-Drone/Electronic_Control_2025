@@ -26,7 +26,6 @@ std::queue<RetryPoint> retry_navigating_points; // 针对避障点的重试队�
 Target targetArray[7]; // 储存靶标信息的数组
 
 
-
 /* ============ 全局变量（静态，外部不可见） ============ */
 static double x_[4] = {0};        // [x, y, vx, vy]
 static double P_[4][4] = {{0}};   // 协方差矩阵
@@ -48,7 +47,8 @@ static void mul44(const double A[4][4], const double B[4][4], double C[4][4])
 /* 4x4 矩阵加常数对角：A += diag(v) */
 static void addDiag44(double A[4][4], double v)
 {
-    for (int i = 0; i < 4; ++i) A[i][i] += v;
+    for(int i=0;i<4;++i)
+        for(int j=0;j<4;++j) C[i][j]=A[i][j]+B[i][j];
 }
 
 /* 求 2x2 逆矩阵 */
@@ -73,14 +73,12 @@ printf("pos=(%.2f,%.2f)  vel=(%.2f,%.2f)\n", x, y, vx, vy);
 */
 void KalmanUpdate(double obsX, double obsY, double& outX, double& outY,double& outVx, double& outVy)
 {
-    /* 第一次调用：用观测初始化状态，协方差置单位阵 */
-    if (firstCall_)
-    {
-        x_[0] = obsX;  x_[1] = obsY;  x_[2] = 0;  x_[3] = 0;
-        for (int i = 0; i < 4; ++i)
-            for (int j = 0; j < 4; ++j)
-                P_[i][j] = (i == j) ? 10.0f : 0.0f;
-        firstCall_ = false;
+    /* ---------- 首次初始化 ---------- */
+    if(firstCall_){
+        x_[0]=obsX;  x_[1]=obsY;  x_[2]=0;  x_[3]=0;
+        for(int i=0;i<4;++i)
+            for(int j=0;j<4;++j) P_[i][j] = (i==j)?10.f:0.f;
+        firstCall_=false;
     }
 
     /* 1. 预测（恒定速度模型，dt=1） */
@@ -146,7 +144,7 @@ void KalmanUpdate(double obsX, double obsY, double& outX, double& outY,double& o
                          +  P_[i][k+2] * H[1][k] * Sinv[k][j];
 
     /* x = x + K*y */
-    for (int i = 0; i < 4; ++i) x_[i] += K[i][0]*y[0] + K[i][1]*y[1];
+    for(int i=0;i<4;++i) x_[i]+=K[i][0]*y[0]+K[i][1]*y[1];
 
     /* P = (I - K*H)*P */
     double KH[4][4] = {{0}};
