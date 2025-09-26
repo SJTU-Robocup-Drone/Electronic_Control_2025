@@ -41,13 +41,13 @@ items = [
 names = {0: 'bridge', 1: 'bunker', 2: 'car', 3: 'Helicopter', 4: 'tank', 5: 'tent', 6: 'red'}
 
 camera_matrix = np.array([
-    [432.9524, 0, 417.1712],  # fx, 0, cx
-    [0, 426.8039, 315.5234],  # 0, fy, cy
+    [688.1914, 0, 643.0892],  # fx, 0, cx
+    [0, 677.2838, 359.0183],  # 0, fy, cy
     [0, 0, 1.0]
 ], dtype=np.float32)
 
-desired_width = 640
-desired_height = 480
+desired_width = 1280
+desired_height = 720
 desired_fps = 120
 cap = None
 
@@ -522,4 +522,5 @@ if __name__ == "__main__":
         if scanning_active:
             stop_event.set()
             detection_thread.join(timeout=1.0)
+
         rospy.loginfo("[INFO] Node shut down safely.")
