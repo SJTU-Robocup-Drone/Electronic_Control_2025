@@ -41,14 +41,14 @@ items = [
 names = {0: 'bridge', 1: 'bunker', 2: 'car', 3: 'Helicopter', 4: 'tank', 5: 'tent', 6: 'red'}
 
 camera_matrix = np.array([
-    [432.9524, 0, 417.1712],  # fx, 0, cx    fx,fy focal length
-    [0, 426.8039, 315.5234],  # 0, fy, cy    cx,cy principal point  needs calibration
+    [688.1914, 0, 643.0892],  # fx, 0, cx    fx,fy focal length
+    [0, 677.2838, 359.0183],  # 0, fy, cy    cx,cy principal point  needs calibration
     [0, 0, 1.0]  # 0, 0, 1
 ], dtype=np.float32)  # Explicitly set to 32-bit float
 
-desired_width = 640
-desired_height = 480
-desired_fps = 120
+desired_width = 1280
+desired_height = 720
+desired_fps = 60
 cap = None
 # Coordinate publishers
 detection_pub = None
