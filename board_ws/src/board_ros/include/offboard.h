@@ -8,6 +8,7 @@
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Twist.h>
+#include <geometry_msgs/TwistStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <mavros_msgs/PositionTarget.h>
 #include <mavros_msgs/CommandBool.h>
@@ -65,6 +66,7 @@ extern ros::ServiceClient set_mode_client;
 extern geometry_msgs::PoseStamped initial_pose;
 extern geometry_msgs::PoseStamped pose;
 extern geometry_msgs::Twist vel;
+extern geometry_msgs::TwistStamped kf_vel;
 extern geometry_msgs::PoseStamped target_pose;
 extern geometry_msgs::PoseStamped nav_pose;
 extern geometry_msgs::PoseStamped current_pose;

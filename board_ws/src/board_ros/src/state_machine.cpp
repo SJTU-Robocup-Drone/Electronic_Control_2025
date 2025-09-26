@@ -10,6 +10,7 @@ MissionState mission_state = TAKEOFF;
 geometry_msgs::PoseStamped initial_pose;
 geometry_msgs::PoseStamped pose;
 geometry_msgs::Twist vel;
+geometry_msgs::TwistStamped kf_vel;
 geometry_msgs::PoseStamped target_pose;
 geometry_msgs::PoseStamped nav_pose;
 geometry_msgs::PoseStamped current_pose;
@@ -429,7 +430,7 @@ void detecting(ros::Rate &rate)
 {
     static track::Learner compute;
     static track::Learner compute_v;
-    compute_v.prm.learn_window_sec = 0.3;
+    compute_v.prm.learn_window_sec = 1.5;
     track::Endpoints establishedPoints;
     track::Endpoints velocityPoints;
     ros::Time switch_time = ros::Time::now();
@@ -605,20 +606,24 @@ void detecting(ros::Rate &rate)
                 ros::spinOnce();
                 local_pos_pub.publish(pose); // 保持悬停
                 rate.sleep();
+
                 // 目标速度解算
+                // 1.卡尔曼滤波速度
                 geometry_msgs::Vector3 kf_v;
                 geometry_msgs::PoseStamped calc_target = target_pose;
                 KalmanUpdate(target_pose.pose.position.x, target_pose.pose.position.y, calc_target.pose.position.x,calc_target.pose.position.y,kf_v.x,kf_v.y);
                 compute_v.feed(calc_target);
+                // 2.RANSAC速度解算
                 geometry_msgs::Vector3 v;
                 compute_v.fitLinearVelocityRANSAC(v.x,v.y,0.2,0.2);
-                // visionCallback(target_pose);
-                // v = computeAverageVelocity();
+
                 // 计算投影距离
                 geometry_msgs::PoseStamped tgt_pose = target_pose;
                 tgt_pose.pose.position.z = current_pose.pose.position.z;
+                // 投影距离变量
+                double projection_distance = distance(current_pose, tgt_pose.pose.position);
                 // 用于判断小车是否从远处向无人机投影逼近
-                if (distance(current_pose, tgt_pose.pose.position) >= 0.40)
+                if (projection_distance >= 0.60)
                 {
                     if (tank_state == false)
                         ROS_INFO("TANK_STATE gets into true.");
@@ -626,14 +631,20 @@ void detecting(ros::Rate &rate)
                     
                 }
 
-                double velocity = sqrt(v.x * v.x + v.y * v.y);
+                // 速度小于0.25的时候，存入速度
+                double velocity;
+                if(sqrt(v.x * v.x + v.y * v.y) <= 0.25);
+                    velocity = sqrt(v.x * v.x + v.y * v.y);
+                //速度可视化发布
                 velocityPoints.B = {v.x, v.y};
                 velocityPoints.L = velocity;
                 track::publish_endpoints(velocityPoints, target_pose);
-                ROS_INFO("Speed is %2f", velocity);
-                if (distance(current_pose, tgt_pose.pose.position) / velocity <= 1.6 && velocity != 0 && tank_state == true)
+                // ROS_INFO("Speed is %2f", velocity);
+                
+                // 投弹判断
+                if (projection_distance / velocity <= 2.2 && velocity >= 0.05 && tank_state == true)
                 {
-                    follow_bombing(rate, 1);
+                    follow_bombing(rate, 2);
                     ROS_INFO("Bomb now");
                     return; 
                 }

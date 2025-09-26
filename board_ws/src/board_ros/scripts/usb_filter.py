@@ -450,14 +450,14 @@ def detect_targets():
                         rospy.loginfo(
                             f"tank tracked: X={x_est:.2f}, Y={y_est:.2f}, VX={vx_est:.2f}, VY={vy_est:.2f}, conf: {conf:.2f}")
 
-                    if names[class_id] != "red":
+                    if names[class_id] != "red" and names[class_id] != "tank":
                         detection_msg.point.x = -x
                         detection_msg.point.y = -y
                         detection_msg.point.z = z
                         detection_pub.publish(detection_msg)
 
-                    rospy.loginfo(
-                        f"YOLO detected: {names[class_id]}, coords: X={x:.2f}, Y={y:.2f}, Z={z:.2f}, conf: {conf:.2f}")
+                        rospy.loginfo(
+                            f"YOLO detected: {names[class_id]}, coords: X={x:.2f}, Y={y:.2f}, Z={z:.2f}, conf: {conf:.2f}")
 
     # cv2.destroyAllWindows()
     # rospy.on_shutdown(shutdown_hook)

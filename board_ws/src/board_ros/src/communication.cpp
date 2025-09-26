@@ -32,6 +32,11 @@ ros::ServiceClient set_mode_client;
 
 ros::Timer process_target_timer;
 
+void kf_velocity_cb(const geometry_msgs::TwistStamped::ConstPtr &msg)
+{
+    kf_vel = *msg;
+}
+
 void state_cb(const mavros_msgs::State::ConstPtr &msg)
 {
     current_state = *msg;

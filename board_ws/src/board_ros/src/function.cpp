@@ -48,7 +48,7 @@ static void mul44(const double A[4][4], const double B[4][4], double C[4][4])
 static void addDiag44(double A[4][4], double v)
 {
     for(int i=0;i<4;++i)
-        for(int j=0;j<4;++j) C[i][j]=A[i][j]+B[i][j];
+       A[i][i]+=v;
 }
 
 /* 求 2x2 逆矩阵 */
