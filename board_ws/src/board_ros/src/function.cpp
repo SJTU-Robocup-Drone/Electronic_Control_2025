@@ -222,7 +222,7 @@ double distance(const geometry_msgs::PoseStamped &current_pose_, const geometry_
 }
 
 // 读取参数到既有变量名
-void init_params(ros::NodeHandle &nh)
+/*void init_params(ros::NodeHandle &nh)
 {
     int num_of_searching_points;
     nh.getParam("/num_of_searching_points",num_of_searching_points);
@@ -252,6 +252,97 @@ void init_params(ros::NodeHandle &nh)
         bool isNeedForBomb;
         nh.getParam("/target_" + std::to_string(i),isNeedForBomb);
         targetArray[i].isNeedForBomb = isNeedForBomb;
+    }
+}*/
+void init_params(ros::NodeHandle &nh)
+{
+    try {
+        // 读取搜索点数量
+        int num_of_searching_points;
+        if (!nh.getParam("/num_of_searching_points", num_of_searching_points)) {
+            throw std::runtime_error("Failed to get parameter: /num_of_searching_points");
+        }
+        
+        if (num_of_searching_points <= 0) {
+            throw std::runtime_error("Invalid number of searching points: " + std::to_string(num_of_searching_points));
+        }
+
+        ROS_INFO_STREAM("Loading " << num_of_searching_points << " searching points");
+        
+        // 读取搜索点坐标
+        for (int i = 0; i < num_of_searching_points; ++i) {
+            float point[3];
+            std::string base_name = "/searching_point_" + std::to_string(i);
+            
+            if (!nh.getParam(base_name + "_x", point[0])) {
+                throw std::runtime_error("Failed to get parameter: " + base_name + "_x");
+            }
+            if (!nh.getParam(base_name + "_y", point[1])) {
+                throw std::runtime_error("Failed to get parameter: " + base_name + "_y");
+            }
+            if (!nh.getParam(base_name + "_z", point[2])) {
+                throw std::runtime_error("Failed to get parameter: " + base_name + "_z");
+            }
+            
+            // 假设的createPoint函数，根据你的实际实现调整
+            searching_points.push_back(createPoint(point[0], point[1], point[2]));
+            ROS_DEBUG_STREAM("Loaded searching point " << i << ": (" 
+                          << point[0] << ", " << point[1] << ", " << point[2] << ")");
+        }
+
+        // 读取障碍区域点数量
+        int num_of_obstacle_zone_points;
+        if (!nh.getParam("/num_of_obstacle_zone_points", num_of_obstacle_zone_points)) {
+            throw std::runtime_error("Failed to get parameter: /num_of_obstacle_zone_points");
+        }
+        
+        if (num_of_obstacle_zone_points <= 0) {
+            throw std::runtime_error("Invalid number of obstacle zone points: " + 
+                                   std::to_string(num_of_obstacle_zone_points));
+        }
+
+        ROS_INFO_STREAM("Loading " << num_of_obstacle_zone_points << " obstacle zone points");
+        
+        // 读取障碍区域点坐标
+        for (int i = 0; i < num_of_obstacle_zone_points; ++i) {
+            float point[3];
+            std::string base_name = "/obstacle_zone_point_" + std::to_string(i);
+            
+            if (!nh.getParam(base_name + "_x", point[0])) {
+                throw std::runtime_error("Failed to get parameter: " + base_name + "_x");
+            }
+            if (!nh.getParam(base_name + "_y", point[1])) {
+                throw std::runtime_error("Failed to get parameter: " + base_name + "_y");
+            }
+            if (!nh.getParam(base_name + "_z", point[2])) {
+                throw std::runtime_error("Failed to get parameter: " + base_name + "_z");
+            }
+            
+            obstacle_zone_points.push_back(createPoint(point[0], point[1], point[2]));
+            ROS_DEBUG_STREAM("Loaded obstacle zone point " << i << ": (" 
+                          << point[0] << ", " << point[1] << ", " << point[2] << ")");
+        }
+
+        // 读取靶标开关参数
+        ROS_INFO("Loading target parameters");
+        for (int i = 0; i < 7; ++i) {
+            bool isNeedForBomb;
+            std::string param_name = "/target_" + std::to_string(i);
+            
+            if (!nh.getParam(param_name, isNeedForBomb)) {
+                ROS_WARN_STREAM("Failed to get parameter: " << param_name << ", using default value: true");
+                isNeedForBomb = true; // 使用默认值
+            }
+            
+            targetArray[i].isNeedForBomb = isNeedForBomb;
+            ROS_DEBUG_STREAM("Target " << i << " bomb requirement: " << (isNeedForBomb ? "true" : "false"));
+        }
+        
+        ROS_INFO("All parameters loaded successfully");
+        
+    } catch (const std::exception& e) {
+        ROS_FATAL_STREAM("Error loading parameters: " << e.what());
+        throw; // 重新抛出异常，让调用者处理
     }
 }
 
