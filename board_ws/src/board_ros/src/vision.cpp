@@ -200,7 +200,7 @@ void process_target_cb()
         if (targetArray[5].isValid && !targetArray[5].isBombed)
         {
             is_found = true;
-            ROS_INFO("Landing area found at: (%.2f, %.2f)", targetArray[5].x, targetArray[5].y);
+            // ROS_INFO("Landing area found at: (%.2f, %.2f)", targetArray[5].x, targetArray[5].y);
 
             target_pose.header.frame_id = "map";
             target_pose.pose.position.x = targetArray[5].x;

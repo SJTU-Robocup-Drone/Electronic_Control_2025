@@ -252,7 +252,7 @@ void adjusting(ros::Rate &rate)
     hovering(adj_height, 4, true, rate);  // 等待扫描
 
     // 关闭视觉扫描
-    vision_state_msg.data = false;        
+    if(current_index != 4) vision_state_msg.data = false;        
     vision_state_pub.publish(vision_state_msg);
 
     // 判断视觉误识别并刷新目标点
@@ -967,12 +967,23 @@ void check_vision(float adj_height)
 void adjust_by_pose(ros::Rate &rate, float adj_height)
 {
     pose.pose.orientation = initial_pose.pose.orientation;
-    while (distance(current_pose, pose.pose.position) > threshold_distance / 2.0 && ros::ok())
-    {
-        ros::spinOnce();
-        set_and_pub_pose(target_pose.pose.position.x, target_pose.pose.position.y, adj_height);
-        ROS_INFO_THROTTLE(1.0, "Adjusting to (%.2f, %.2f)...", pose.pose.position.x, pose.pose.position.y);
-        rate.sleep();
+    if(current_index == 4) {
+        while (distance(current_pose, pose.pose.position) > threshold_distance && ros::ok())
+        {
+            ros::spinOnce();
+            set_and_pub_pose(target_pose.pose.position.x, target_pose.pose.position.y, adj_height);
+            ROS_INFO_THROTTLE(1.0, "Adjusting to (%.2f, %.2f)...", pose.pose.position.x, pose.pose.position.y);
+            rate.sleep();
+        }
+    }
+    else {
+        while (distance(current_pose, pose.pose.position) > threshold_distance / 2.0 && ros::ok())
+        {
+            ros::spinOnce();
+            set_and_pub_pose(target_pose.pose.position.x, target_pose.pose.position.y, adj_height);
+            ROS_INFO_THROTTLE(1.0, "Adjusting to (%.2f, %.2f)...", pose.pose.position.x, pose.pose.position.y);
+            rate.sleep();
+        }
     }
 }
 
@@ -996,7 +1007,10 @@ void vertically_set_vel_to_bomb(float v, float bomb_height, float lowest_height,
             // 标记当前目标为已投掷
             targetArray[current_index].isBombed = true;
             // 重置移动靶标志
-            if(is_moving_target) is_moving_target = false;
+            if(is_moving_target){
+                is_moving_target = false;
+                vision_state_msg.data = false;
+            }
         }
         rate.sleep();
     }
