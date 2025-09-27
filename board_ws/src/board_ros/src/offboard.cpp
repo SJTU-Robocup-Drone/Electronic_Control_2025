@@ -17,7 +17,12 @@ int main(int argc, char **argv)
     // 初始化话题/服务
     init_nav_interfaces(nh);
     // 读取参数到 searching_points/obstacle_zone_points
-    init_params(nh);
+    try {
+        init_params(nh);
+    } catch (const std::exception& e) {
+        ROS_ERROR_STREAM("Node initialization failed: " << e.what());
+        return 1;
+    }
 
     // 等 FCU
     ROS_INFO("Waiting for FCU connection...");
