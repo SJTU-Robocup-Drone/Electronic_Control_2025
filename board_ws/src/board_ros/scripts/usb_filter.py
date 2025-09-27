@@ -212,8 +212,12 @@ def grab_thread():
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     while grab_running:
+         # 创建VideoWriter对象
+        out = cv2.VideoWriter('output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 10, (desired_width, desired_height))
         ret, frame = cap.read()
         if ret:
+            out.write(frame) # 写入帧
+            # cv2.imshow('frame', frame)
             with frame_lock:
                 latest_frame = frame.copy()
         else:
