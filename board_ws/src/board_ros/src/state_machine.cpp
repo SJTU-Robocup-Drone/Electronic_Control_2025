@@ -248,11 +248,16 @@ void adjusting(ros::Rate &rate)
 
     adjust_has_target = false;
     ROS_INFO("2nd time of visual scanning...");
-    hovering(adj_height, 2, false, rate); // 稳定位姿
-    hovering(adj_height, 4, true, rate);  // 等待扫描
+    if(!is_moving_target){
+        hovering(adj_height, 2, false, rate); // 稳定位姿
+        hovering(adj_height, 4, true, rate);  // 等待扫描
+    }
+    else{
+        hovering(adj_height, 30, true, rate);
+    }
 
     // 关闭视觉扫描
-    if(current_index != 4) vision_state_msg.data = false;        
+    if(!is_moving_target) vision_state_msg.data = false;        
     vision_state_pub.publish(vision_state_msg);
 
     // 判断视觉误识别并刷新目标点
@@ -924,12 +929,12 @@ void bn_check_arrival()
         // 将“是否重试”状态设置为否
         is_retrying_bombing_point = false;
         retrying_target_index = -1;
-        if (is_moving_target)
-        {
-            mission_state = DETECTING;
-            ROS_INFO("The target is moving, detecting it.");
-        }
-        else
+        // if (is_moving_target)
+        // {
+        //     mission_state = DETECTING;
+        //     ROS_INFO("The target is moving, detecting it.");
+        // }
+        // else
             mission_state = ADJUSTING;
         need_exit = true;
     }
@@ -967,7 +972,7 @@ void check_vision(float adj_height)
 void adjust_by_pose(ros::Rate &rate, float adj_height)
 {
     pose.pose.orientation = initial_pose.pose.orientation;
-    if(current_index == 4) {
+    if(is_moving_target) {
         while (distance(current_pose, pose.pose.position) > threshold_distance && ros::ok())
         {
             ros::spinOnce();
@@ -1008,8 +1013,8 @@ void vertically_set_vel_to_bomb(float v, float bomb_height, float lowest_height,
             targetArray[current_index].isBombed = true;
             // 重置移动靶标志
             if(is_moving_target){
-                is_moving_target = false;
                 vision_state_msg.data = false;
+                is_moving_target = false;
             }
         }
         rate.sleep();
